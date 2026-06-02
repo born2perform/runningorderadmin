@@ -223,7 +223,7 @@
   // ─────────────────────────────────────────────────────────
   // CONFIG — paste your deployed Apps Script URL here
   // ─────────────────────────────────────────────────────────
-  const SCRIPT_URL = 'YOUR_APPS_SCRIPT_URL_HERE';
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwREmPTbjTbICoycCjMksAzKQJx9yU7M2Y9QP1z8E8WULTk9iDu4nTVENSjtBper3stOw/exec';
   // ─────────────────────────────────────────────────────────
 
   let awardOptions = [];
@@ -423,12 +423,26 @@
     await save(rowIndex, { done: isDone });
   }
 
-  async function toggleAward(rowIndex, award, btn) {
+  // Debounce timers per row — keyed by rowIndex
+  const awardDebounceTimers = {};
+
+  function toggleAward(rowIndex, award, btn) {
     btn.classList.toggle('selected');
-    const card = btn.closest('.row-card');
-    const selected = Array.from(card.querySelectorAll('.award-pill.selected'))
-      .map(b => b.textContent.trim());
-    await save(rowIndex, { awardText: selected.join('|') });
+
+    // Mark row as pending immediately so refresh doesn't overwrite
+    pendingRows.add(rowIndex);
+
+    // Cancel any pending save for this row
+    clearTimeout(awardDebounceTimers[rowIndex]);
+
+    // Schedule a save 1.5s after the last tap
+    awardDebounceTimers[rowIndex] = setTimeout(async () => {
+      const card = btn.closest('.row-card');
+      const selected = Array.from(card.querySelectorAll('.award-pill.selected'))
+        .map(b => b.textContent.trim());
+      await save(rowIndex, { awardText: selected.join('|') });
+      delete awardDebounceTimers[rowIndex];
+    }, 1500);
   }
 
   async function save(rowIndex, payload) {
