@@ -176,6 +176,9 @@
     .row-award .sp-check { border-color: rgba(61,41,0,0.35); color: #3d2900; }
     .row-award .sp-check.active { background: rgba(61,41,0,0.12); border-color: #3d2900; }
 
+    /* Faded/greyed state for completed special rows */
+    .special-row.done { opacity: 0.45; filter: grayscale(60%); }
+
     /* ── TOAST ──────────────────────────────────────────── */
     .saving-toast {
       position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
@@ -220,7 +223,7 @@
   // ─────────────────────────────────────────────────────────
   // CONFIG — paste your deployed Apps Script URL here
   // ─────────────────────────────────────────────────────────
-  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwREmPTbjTbICoycCjMksAzKQJx9yU7M2Y9QP1z8E8WULTk9iDu4nTVENSjtBper3stOw/exec';
+  const SCRIPT_URL = 'YOUR_APPS_SCRIPT_URL_HERE';
   // ─────────────────────────────────────────────────────────
 
   let awardOptions = [];
@@ -263,6 +266,10 @@
   }, 18);
 
   // ── DATA FETCH ───────────────────────────────────────────
+  // pendingRows tracks rows with in-flight saves so we don't
+  // overwrite optimistic UI updates during the 10s refresh
+  const pendingRows = new Set();
+
   async function fetchData() {
     try {
       const res  = await fetch(SCRIPT_URL);
@@ -270,10 +277,61 @@
       if (data.error) throw new Error(data.error);
       awardOptions = data.awardOptions || [];
       document.getElementById('comp-name').textContent = data.compName || '';
-      renderOrder(data.rows || []);
+      reconcileOrder(data.rows || []);
     } catch (err) {
       console.error('Fetch error:', err);
     }
+  }
+
+  // reconcileOrder: on first load do a full render; on subsequent
+  // refreshes only patch rows that have changed AND are not pending
+  let firstLoad = true;
+  function reconcileOrder(rows) {
+    if (firstLoad) {
+      renderOrder(rows);
+      firstLoad = false;
+      return;
+    }
+    const container = document.getElementById('running-order');
+    const cards = container.querySelectorAll('[data-row-index]');
+
+    rows.forEach(row => {
+      if (row.rowType === 'spacer') return;
+
+      // Skip any row that has a save in flight
+      if (pendingRows.has(row.rowIndex)) return;
+
+      const existing = container.querySelector(`[data-row-index="${row.rowIndex}"]`);
+      if (!existing) return;
+
+      // Update done state
+      const isDone = row.done;
+      if (row.rowType === 'standard') {
+        existing.classList.toggle('done', isDone);
+        const btn = existing.querySelector('.done-btn');
+        if (btn) {
+          btn.classList.toggle('active', isDone);
+          btn.innerHTML = isDone ? '&#10003;' : '';
+        }
+        // Update award pills selection
+        if (awardOptions.length > 0) {
+          const selectedAwards = row.awardText
+            ? row.awardText.split('|').map(a => a.trim()).filter(Boolean)
+            : [];
+          existing.querySelectorAll('.award-pill').forEach(pill => {
+            pill.classList.toggle('selected', selectedAwards.includes(pill.textContent.trim()));
+          });
+        }
+      } else {
+        // Special row — update done state only
+        existing.classList.toggle('done', isDone);
+        const btn = existing.querySelector('.sp-check');
+        if (btn) {
+          btn.classList.toggle('active', isDone);
+          btn.innerHTML = isDone ? '&#10003;' : '';
+        }
+      }
+    });
   }
 
   // ── RENDER ───────────────────────────────────────────────
@@ -367,7 +425,6 @@
 
   async function toggleAward(rowIndex, award, btn) {
     btn.classList.toggle('selected');
-    // Collect all currently selected pills for this card
     const card = btn.closest('.row-card');
     const selected = Array.from(card.querySelectorAll('.award-pill.selected'))
       .map(b => b.textContent.trim());
@@ -375,6 +432,7 @@
   }
 
   async function save(rowIndex, payload) {
+    pendingRows.add(rowIndex);
     showToast('Saving...', false);
     try {
       const res = await fetch(SCRIPT_URL, {
@@ -388,6 +446,10 @@
     } catch (err) {
       console.error('Save error:', err);
       showToast('Save failed \u2717', true);
+    } finally {
+      // Remove from pending after a short delay to let the
+      // sheet catch up before we allow refresh to overwrite
+      setTimeout(() => pendingRows.delete(rowIndex), 5000);
     }
   }
 
