@@ -2,7 +2,7 @@
   "name": "B2P Live Tracker",
   "short_name": "B2P Live",
   "description": "Born2Perform Running Order Live Tracker",
-  "start_url": "/",
+"start_url": "/runningorderadmin/"
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",
