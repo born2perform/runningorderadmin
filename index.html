@@ -3,7 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
-  <title>B2P Running Order Admin</title>
+  <title>B2P Running Order Live Tracker</title>
+
+  <!-- PWA / icon meta — place icon files in same folder as index.html -->
+  <link rel="icon" type="image/png" sizes="32x32"   href="favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16"   href="favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180"      href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="android-chrome-192x192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="android-chrome-512x512.png">
+  <link rel="manifest" href="site.webmanifest">
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="B2P Live">
+
   <style>
     :root {
       --gold: #FFB90D;
@@ -11,10 +24,7 @@
       --text-dark: #202124;
       --text-muted: #5f6368;
       --border: #dadce0;
-      --award-bg: #f1c232;
-      --award-text: #3d2900;
-      --break-bg: #4a86e8;
-      --danceoff-bg: #8e7cc3;
+      --blue-time: #4a86e8;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -30,26 +40,20 @@
     #loading-screen {
       position: fixed; inset: 0;
       display: flex; align-items: center; justify-content: center;
-      background: #000;
-      z-index: 999;
+      background: #000; z-index: 999;
       transition: opacity 0.5s ease;
     }
     #loading-screen.hidden { opacity: 0; pointer-events: none; }
 
     .load-container { text-align: center; width: 100%; padding: 20px; }
 
-    .logo-area {
-      position: relative; display: inline-block; margin-bottom: 20px;
-    }
+    .logo-area { position: relative; display: inline-block; margin-bottom: 20px; }
     .logo-area::before {
       content: '';
       position: absolute; top: 50%; left: 50%;
-      width: 140px; height: 140px;
-      background: #FFB90D; border-radius: 50%;
-      transform: translate(-50%, -50%);
-      filter: blur(45px);
-      animation: glowPulse 3s infinite ease-in-out;
-      z-index: 0;
+      width: 140px; height: 140px; background: #FFB90D; border-radius: 50%;
+      transform: translate(-50%, -50%); filter: blur(45px);
+      animation: glowPulse 3s infinite ease-in-out; z-index: 0;
     }
     .logo-area img { width: 160px; height: auto; position: relative; z-index: 1; }
 
@@ -63,18 +67,9 @@
       font-size: 0.8rem; letter-spacing: 2px; color: #FFB90D;
       text-transform: uppercase; margin-bottom: 12px; font-weight: bold; height: 1.2rem;
     }
-    #percentage {
-      font-size: 3rem; font-weight: 900; color: white;
-      font-variant-numeric: tabular-nums; margin-bottom: 10px;
-    }
-    .progress-bar-bg {
-      width: 220px; height: 3px; background: #1a1a1a;
-      margin: 10px auto; overflow: hidden; border-radius: 10px;
-    }
-    #progress-bar-fill {
-      width: 0%; height: 100%; background: #FFB90D;
-      box-shadow: 0 0 15px #FFB90D; transition: width 0.1s linear;
-    }
+    #percentage { font-size: 3rem; font-weight: 900; color: white; font-variant-numeric: tabular-nums; margin-bottom: 10px; }
+    .progress-bar-bg { width: 220px; height: 3px; background: #1a1a1a; margin: 10px auto; overflow: hidden; border-radius: 10px; }
+    #progress-bar-fill { width: 0%; height: 100%; background: #FFB90D; box-shadow: 0 0 15px #FFB90D; transition: width 0.1s linear; }
 
     @keyframes glowPulse {
       0%   { opacity: 0.15; transform: translate(-50%, -50%) scale(1); }
@@ -87,124 +82,106 @@
     #app.visible { display: block; }
 
     .app-header {
-      background: #000; color: var(--gold);
-      padding: 14px 16px 10px;
+      background: #000; padding: 14px 16px 10px;
       position: sticky; top: 0; z-index: 100;
       border-bottom: 2px solid var(--gold);
     }
-    .app-header-title {
-      font-size: 1rem; font-weight: 900; letter-spacing: 3px;
-      text-transform: uppercase; color: var(--gold);
-    }
+    .app-header-title { font-size: 1rem; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); }
     .comp-name { font-size: 0.75rem; color: #aaa; margin-top: 2px; letter-spacing: 1px; }
-
-    .sync-bar {
-      display: flex; align-items: center; gap: 6px;
-      font-size: 0.7rem; color: #d93025; font-weight: bold; margin-top: 6px;
-    }
-    .sync-dot {
-      width: 7px; height: 7px; background: #d93025;
-      border-radius: 50%; animation: blink 1.5s infinite;
-    }
+    .sync-bar { display: flex; align-items: center; gap: 6px; font-size: 0.7rem; color: #d93025; font-weight: bold; margin-top: 6px; }
+    .sync-dot { width: 7px; height: 7px; background: #d93025; border-radius: 50%; animation: blink 1.5s infinite; }
     @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-    /* ── ROW CARDS ──────────────────────────────────────── */
+    /* ── STANDARD CARDS ─────────────────────────────────── */
     .running-order { padding: 10px 12px 60px; }
-
     .spacer-row { height: 14px; }
 
     .row-card {
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      margin-bottom: 8px;
-      overflow: hidden;
+      background: #fff; border: 1px solid var(--border);
+      border-radius: 10px; margin-bottom: 8px; overflow: hidden;
     }
     .row-card.done { background: #fafafa; border-color: #e0e0e0; opacity: 0.72; }
 
+    /* Main row: time | info | done-btn — always in one line */
     .card-main {
       display: flex; align-items: center;
-      padding: 12px 14px; gap: 12px;
+      padding: 12px 14px; gap: 10px;
     }
+
     .card-time {
-      font-size: 1rem; font-weight: 800;
-      color: #4a86e8; min-width: 48px; line-height: 1.3; flex-shrink: 0;
+      font-size: 1rem; font-weight: 800; color: var(--blue-time);
+      min-width: 46px; flex-shrink: 0; line-height: 1.3;
     }
     .row-card.done .card-time { color: #9aa0a6; }
 
     .card-info { flex: 1; min-width: 0; }
-    .card-school {
-      font-size: 0.82rem; color: var(--text-muted);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .card-team {
-      font-size: 0.97rem; font-weight: 700;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .row-card.done .card-team { text-decoration: line-through; color: #9aa0a6; }
+    .card-school { font-size: 0.8rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .card-team   { font-size: 0.95rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .row-card.done .card-team   { text-decoration: line-through; color: #9aa0a6; }
     .row-card.done .card-school { color: #bbb; }
 
+    /* Done button — always visible, right side */
     .done-btn {
       display: flex; align-items: center; justify-content: center;
-      width: 44px; height: 44px; border-radius: 50%;
-      border: 2px solid var(--border);
-      background: #fff; cursor: pointer; font-size: 1.2rem;
+      width: 48px; height: 48px; border-radius: 50%;
+      border: 2px solid var(--border); background: #fff;
+      cursor: pointer; font-size: 1.3rem; font-weight: bold;
       flex-shrink: 0; transition: all 0.2s;
       -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
     }
     .done-btn.active { background: var(--done-green); border-color: var(--done-green); color: white; }
 
+    /* Award section below the main row */
     .award-section { padding: 0 14px 12px; border-top: 1px solid #f0f0f0; }
     .award-label {
-      font-size: 0.7rem; color: var(--text-muted);
-      text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; padding-top: 8px;
+      font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;
+      letter-spacing: 1px; margin-bottom: 6px; padding-top: 8px;
     }
-    .award-select {
-      width: 100%; padding: 8px 32px 8px 10px;
-      border: 1px solid var(--border); border-radius: 6px;
-      font-size: 0.9rem; background: #fff; color: var(--text-dark);
-      appearance: none; -webkit-appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-      background-repeat: no-repeat; background-position: right 10px center;
-      cursor: pointer;
+
+    /* Multi-select award list — pill buttons */
+    .award-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .award-pill {
+      padding: 6px 12px; border-radius: 16px; font-size: 0.82rem; font-weight: 600;
+      border: 1.5px solid var(--border); background: #f8f9fa; color: var(--text-dark);
+      cursor: pointer; transition: all 0.15s; -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation; user-select: none;
     }
+    .award-pill.selected { background: #f1c232; border-color: #c9940a; color: #3d2900; }
 
     /* ── SPECIAL ROWS ───────────────────────────────────── */
     .special-row {
       border-radius: 8px; margin-bottom: 8px;
-      padding: 14px 16px;
-      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px; display: flex; align-items: center; gap: 12px;
     }
-    .sp-time { font-size: 0.85rem; font-weight: 700; opacity: 0.85; min-width: 46px; flex-shrink: 0; }
+    .sp-time  { font-size: 0.85rem; font-weight: 700; opacity: 0.85; min-width: 46px; flex-shrink: 0; }
     .sp-label { font-size: 0.95rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; flex: 1; }
 
     .sp-check {
       display: flex; align-items: center; justify-content: center;
-      width: 36px; height: 36px; border-radius: 50%;
-      border: 2px solid rgba(255,255,255,0.5);
-      background: transparent; cursor: pointer; font-size: 1rem;
-      flex-shrink: 0; transition: all 0.2s; color: rgba(255,255,255,0.9);
-      -webkit-tap-highlight-color: transparent;
+      width: 42px; height: 42px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.5); background: transparent;
+      cursor: pointer; font-size: 1.1rem; flex-shrink: 0;
+      transition: all 0.2s; color: rgba(255,255,255,0.9);
+      -webkit-tap-highlight-color: transparent; touch-action: manipulation;
     }
     .sp-check.active { background: rgba(255,255,255,0.25); border-color: rgba(255,255,255,0.95); }
 
-    /* Fixed known colours */
-    .row-award   { background: var(--award-bg); color: var(--award-text); }
-    .row-break   { background: var(--break-bg); color: #fff; }
-    .row-danceoff { background: var(--danceoff-bg); color: #fff; }
+    .row-award    { background: #f1c232; color: #3d2900; }
+    .row-break    { background: #4a86e8; color: #fff; }
+    .row-danceoff { background: #8e7cc3; color: #fff; }
 
-    .row-award .sp-time  { color: var(--award-text); }
-    .row-award .sp-label { color: var(--award-text); }
-    .row-award .sp-check { border-color: rgba(61,41,0,0.35); color: var(--award-text); }
-    .row-award .sp-check.active { background: rgba(61,41,0,0.12); border-color: var(--award-text); }
+    .row-award .sp-time  { color: #3d2900; }
+    .row-award .sp-label { color: #3d2900; }
+    .row-award .sp-check { border-color: rgba(61,41,0,0.35); color: #3d2900; }
+    .row-award .sp-check.active { background: rgba(61,41,0,0.12); border-color: #3d2900; }
 
-    /* ── SAVE TOAST ─────────────────────────────────────── */
+    /* ── TOAST ──────────────────────────────────────────── */
     .saving-toast {
       position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-      background: #333; color: #fff;
-      padding: 10px 20px; border-radius: 20px;
-      font-size: 0.85rem; font-weight: 600;
-      opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 200;
+      background: #333; color: #fff; padding: 10px 20px; border-radius: 20px;
+      font-size: 0.85rem; font-weight: 600; opacity: 0; pointer-events: none;
+      transition: opacity 0.3s; z-index: 200; white-space: nowrap;
     }
     .saving-toast.show { opacity: 1; }
     .saving-toast.error { background: #d93025; }
@@ -230,14 +207,13 @@
 <!-- MAIN APP -->
 <div id="app">
   <div class="app-header">
-    <div class="app-header-title">RUNNING ORDER ADMIN</div>
+    <div class="app-header-title">B2P LIVE TRACKER</div>
     <div class="comp-name" id="comp-name">Loading...</div>
     <div class="sync-bar"><span class="sync-dot"></span> LIVE SYNC ACTIVE</div>
   </div>
   <div class="running-order" id="running-order"></div>
 </div>
 
-<!-- TOAST -->
 <div class="saving-toast" id="toast"></div>
 
 <script>
@@ -268,13 +244,11 @@
     count++;
     pctEl.textContent  = count + '%';
     fillEl.style.width = count + '%';
-
     if (count === 1)  txtEl.textContent = hypeWords[0];
     if (count === 20) txtEl.textContent = hypeWords[1];
     if (count === 40) txtEl.textContent = hypeWords[2];
     if (count === 60) txtEl.textContent = hypeWords[3];
     if (count === 80) txtEl.textContent = hypeWords[4];
-
     if (count >= 100) {
       clearInterval(counter);
       txtEl.textContent = hypeWords[5];
@@ -282,9 +256,7 @@
         fetchData().then(() => {
           document.getElementById('loading-screen').classList.add('hidden');
           document.getElementById('app').classList.add('visible');
-          setTimeout(() => {
-            document.getElementById('loading-screen').style.display = 'none';
-          }, 500);
+          setTimeout(() => document.getElementById('loading-screen').style.display = 'none', 500);
         });
       }, 400);
     }
@@ -309,21 +281,17 @@
     const container = document.getElementById('running-order');
     const scrollY = window.scrollY;
     container.innerHTML = '';
-
     rows.forEach(row => {
       if (row.rowType === 'spacer') {
-        const div = document.createElement('div');
-        div.className = 'spacer-row';
-        container.appendChild(div);
-        return;
-      }
-      if (row.rowType === 'standard') {
+        const d = document.createElement('div');
+        d.className = 'spacer-row';
+        container.appendChild(d);
+      } else if (row.rowType === 'standard') {
         container.appendChild(buildStandardCard(row));
       } else {
         container.appendChild(buildSpecialRow(row));
       }
     });
-
     window.scrollTo(0, scrollY);
   }
 
@@ -332,15 +300,21 @@
     card.className = 'row-card' + (row.done ? ' done' : '');
     card.dataset.rowIndex = row.rowIndex;
 
+    // Parse existing awards (pipe-separated)
+    const selectedAwards = row.awardText
+      ? row.awardText.split('|').map(a => a.trim()).filter(Boolean)
+      : [];
+
     const awardHtml = awardOptions.length > 0 ? `
       <div class="award-section">
-        <div class="award-label">&#127942; Award</div>
-        <select class="award-select" onchange="setAward(${row.rowIndex}, this.value)">
-          <option value="">&mdash; No award &mdash;</option>
-          ${awardOptions.map(opt =>
-            `<option value="${esc(opt)}"${row.awardText === opt ? ' selected' : ''}>${esc(opt)}</option>`
-          ).join('')}
-        </select>
+        <div class="award-label">&#127942; Award (tap to select, tap again to deselect)</div>
+        <div class="award-pills">
+          ${awardOptions.map(opt => `
+            <button class="award-pill${selectedAwards.includes(opt) ? ' selected' : ''}"
+                    onclick="toggleAward(${row.rowIndex}, '${esc(opt)}', this)">
+              ${esc(opt)}
+            </button>`).join('')}
+        </div>
       </div>` : '';
 
     card.innerHTML = `
@@ -361,23 +335,14 @@
 
   function buildSpecialRow(row) {
     const div = document.createElement('div');
-
-    // Determine CSS class — use known colour classes where possible,
-    // fall back to inline background for any other colour
-    let typeClass = '';
-    let inlineStyle = '';
-
     const knownTypes = { award: 'row-award', break: 'row-break', danceoff: 'row-danceoff' };
-    if (knownTypes[row.rowType]) {
-      typeClass = knownTypes[row.rowType];
-    } else if (row.rowColour) {
-      inlineStyle = `style="background:${row.rowColour};color:#fff;"`;
-    } else {
-      typeClass = 'row-award'; // safe fallback
-    }
+    const typeClass = knownTypes[row.rowType] || '';
 
     div.className = `special-row ${typeClass}`;
-    if (inlineStyle) div.setAttribute('style', `background:${row.rowColour};color:#fff;`);
+    if (!typeClass && row.rowColour) {
+      div.style.background = row.rowColour;
+      div.style.color = '#fff';
+    }
     div.dataset.rowIndex = row.rowIndex;
 
     div.innerHTML = `
@@ -400,8 +365,13 @@
     await save(rowIndex, { done: isDone });
   }
 
-  async function setAward(rowIndex, value) {
-    await save(rowIndex, { awardText: value });
+  async function toggleAward(rowIndex, award, btn) {
+    btn.classList.toggle('selected');
+    // Collect all currently selected pills for this card
+    const card = btn.closest('.row-card');
+    const selected = Array.from(card.querySelectorAll('.award-pill.selected'))
+      .map(b => b.textContent.trim());
+    await save(rowIndex, { awardText: selected.join('|') });
   }
 
   async function save(rowIndex, payload) {
@@ -431,13 +401,10 @@
     toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
   }
 
-  // ── ESCAPE HTML ──────────────────────────────────────────
   function esc(str) {
     return String(str || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
   // ── LIVE REFRESH ─────────────────────────────────────────
