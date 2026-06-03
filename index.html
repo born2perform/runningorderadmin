@@ -213,13 +213,14 @@
 <script>
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwREmPTbjTbICoycCjMksAzKQJx9yU7M2Y9QP1z8E8WULTk9iDu4nTVENSjtBper3stOw/exec';
 
-  // ── SINGLE SOURCE OF TRUTH ───────────────────────────────
+  // ── GENERATIONAL TRACKING STATE ENGINE ───────────────────
   const appState = {
     compName: '',
     awardOptions: [],
     rows: {},
-    lastUpdated: {},
-    renderOrder: []
+    renderOrder: [],
+    localVersion: {},
+    serverConfirmedVersion: {}
   };
 
   const awardDebounceTimers = {};
@@ -273,7 +274,6 @@
       document.getElementById('comp-name').textContent = appState.compName;
 
       let structureChanged = forceFullRender || (appState.renderOrder.length !== data.rows.length);
-      const currentTime = Date.now();
 
       data.rows.forEach((networkRow, idx) => {
         const rIndex = networkRow.rowIndex;
@@ -282,9 +282,14 @@
           structureChanged = true;
         }
 
-        // Only update local state if no active lock for this row
-        const localLockTime = appState.lastUpdated[rIndex] || 0;
-        if (currentTime > localLockTime) {
+        // Initialise version tracking for new rows
+        if (appState.localVersion[rIndex] === undefined) {
+          appState.localVersion[rIndex] = 0;
+          appState.serverConfirmedVersion[rIndex] = 0;
+        }
+
+        // Only accept network data if no unconfirmed local changes are pending
+        if (appState.localVersion[rIndex] === appState.serverConfirmedVersion[rIndex]) {
           appState.rows[rIndex] = networkRow;
         }
       });
@@ -419,8 +424,8 @@
 
   // ── INTERACTIONS ─────────────────────────────────────────
   async function toggleDone(rowIndex, btn) {
-    // Lock this row for 12 seconds
-    appState.lastUpdated[rowIndex] = Date.now() + 12000;
+    if (appState.localVersion[rowIndex] === undefined) appState.localVersion[rowIndex] = 0;
+    appState.localVersion[rowIndex]++;
 
     const targetState = !appState.rows[rowIndex].done;
     appState.rows[rowIndex].done = targetState;
@@ -430,12 +435,12 @@
     const card = btn.closest('.row-card, .special-row');
     if (card) card.classList.toggle('done', targetState);
 
-    await dispatchSave(rowIndex, { done: targetState });
+    await dispatchSave(rowIndex, { done: targetState, version: appState.localVersion[rowIndex] });
   }
 
   function toggleAward(rowIndex, btn) {
-    // Lock this row for 12 seconds
-    appState.lastUpdated[rowIndex] = Date.now() + 12000;
+    if (appState.localVersion[rowIndex] === undefined) appState.localVersion[rowIndex] = 0;
+    appState.localVersion[rowIndex]++;
 
     btn.classList.toggle('selected');
 
@@ -447,7 +452,10 @@
 
     clearTimeout(awardDebounceTimers[rowIndex]);
     awardDebounceTimers[rowIndex] = setTimeout(async () => {
-      await dispatchSave(rowIndex, { awardText: appState.rows[rowIndex].awardText });
+      await dispatchSave(rowIndex, {
+        awardText: appState.rows[rowIndex].awardText,
+        version: appState.localVersion[rowIndex]
+      });
       delete awardDebounceTimers[rowIndex];
     }, 1000);
   }
@@ -462,11 +470,18 @@
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
+
+      // Record version confirmed by server
+      if (data.version !== undefined) {
+        appState.serverConfirmedVersion[rowIndex] = data.version;
+      }
       showToast('Saved \u2713', false);
     } catch (err) {
       console.error('Save failed:', err);
       showToast('Save failed \u2717', true);
-      appState.lastUpdated[rowIndex] = Date.now();
+      // Reset versions on failure so next refresh can recover
+      appState.localVersion[rowIndex] = 0;
+      appState.serverConfirmedVersion[rowIndex] = 0;
       fetchData(false);
     }
   }
