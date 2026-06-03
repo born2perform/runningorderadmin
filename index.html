@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
   <title>B2P Running Order Live Tracker</title>
 
-  <!-- PWA / icon meta — place icon files in same folder as index.html -->
   <link rel="icon" type="image/png" sizes="32x32"   href="favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16"   href="favicon-16x16.png">
   <link rel="apple-touch-icon" sizes="180x180"      href="apple-touch-icon.png">
@@ -102,12 +101,10 @@
     }
     .row-card.done { background: #fafafa; border-color: #e0e0e0; opacity: 0.72; }
 
-    /* Main row: time | info | done-btn — always in one line */
     .card-main {
       display: flex; align-items: center;
       padding: 12px 14px; gap: 10px;
     }
-
     .card-time {
       font-size: 1rem; font-weight: 800; color: var(--blue-time);
       min-width: 46px; flex-shrink: 0; line-height: 1.3;
@@ -120,7 +117,6 @@
     .row-card.done .card-team   { text-decoration: line-through; color: #9aa0a6; }
     .row-card.done .card-school { color: #bbb; }
 
-    /* Done button — always visible, right side */
     .done-btn {
       display: flex; align-items: center; justify-content: center;
       width: 48px; height: 48px; border-radius: 50%;
@@ -132,14 +128,11 @@
     }
     .done-btn.active { background: var(--done-green); border-color: var(--done-green); color: white; }
 
-    /* Award section below the main row */
     .award-section { padding: 0 14px 12px; border-top: 1px solid #f0f0f0; }
     .award-label {
       font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;
       letter-spacing: 1px; margin-bottom: 6px; padding-top: 8px;
     }
-
-    /* Multi-select award list — pill buttons */
     .award-pills { display: flex; flex-wrap: wrap; gap: 6px; }
     .award-pill {
       padding: 6px 12px; border-radius: 16px; font-size: 0.82rem; font-weight: 600;
@@ -156,7 +149,6 @@
     }
     .sp-time  { font-size: 0.85rem; font-weight: 700; opacity: 0.85; min-width: 46px; flex-shrink: 0; }
     .sp-label { font-size: 0.95rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; flex: 1; }
-
     .sp-check {
       display: flex; align-items: center; justify-content: center;
       width: 42px; height: 42px; border-radius: 50%;
@@ -176,7 +168,6 @@
     .row-award .sp-check { border-color: rgba(61,41,0,0.35); color: #3d2900; }
     .row-award .sp-check.active { background: rgba(61,41,0,0.12); border-color: #3d2900; }
 
-    /* Faded/greyed state for completed special rows */
     .special-row.done { opacity: 0.45; filter: grayscale(60%); }
 
     /* ── TOAST ──────────────────────────────────────────── */
@@ -220,15 +211,20 @@
 <div class="saving-toast" id="toast"></div>
 
 <script>
-  // ─────────────────────────────────────────────────────────
-  // CONFIG — paste your deployed Apps Script URL here
-  // ─────────────────────────────────────────────────────────
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwREmPTbjTbICoycCjMksAzKQJx9yU7M2Y9QP1z8E8WULTk9iDu4nTVENSjtBper3stOw/exec';
-  // ─────────────────────────────────────────────────────────
 
-  let awardOptions = [];
+  // ── SINGLE SOURCE OF TRUTH ───────────────────────────────
+  const appState = {
+    compName: '',
+    awardOptions: [],
+    rows: {},
+    lastUpdated: {},
+    renderOrder: []
+  };
 
-  // ── LOADING SCREEN ──────────────────────────────────────
+  const awardDebounceTimers = {};
+
+  // ── LOADING SCREEN ───────────────────────────────────────
   const hypeWords = [
     'SYNCING THE SCHEDULE...',
     'LOADING PERFORMANCES...',
@@ -256,7 +252,7 @@
       clearInterval(counter);
       txtEl.textContent = hypeWords[5];
       setTimeout(() => {
-        fetchData().then(() => {
+        fetchData(true).then(() => {
           document.getElementById('loading-screen').classList.add('hidden');
           document.getElementById('app').classList.add('visible');
           setTimeout(() => document.getElementById('loading-screen').style.display = 'none', 500);
@@ -265,84 +261,58 @@
     }
   }, 18);
 
-  // ── DATA FETCH ───────────────────────────────────────────
-  // pendingRows tracks rows with in-flight saves so we don't
-  // overwrite optimistic UI updates during the 10s refresh
-  const pendingRows = new Set();
-
-  async function fetchData() {
+  // ── FETCH & STATE ENGINE ─────────────────────────────────
+  async function fetchData(forceFullRender = false) {
     try {
       const res  = await fetch(SCRIPT_URL);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      awardOptions = data.awardOptions || [];
-      document.getElementById('comp-name').textContent = data.compName || '';
-      reconcileOrder(data.rows || []);
+
+      appState.compName     = data.compName || '';
+      appState.awardOptions = data.awardOptions || [];
+      document.getElementById('comp-name').textContent = appState.compName;
+
+      let structureChanged = forceFullRender || (appState.renderOrder.length !== data.rows.length);
+      const currentTime = Date.now();
+
+      data.rows.forEach((networkRow, idx) => {
+        const rIndex = networkRow.rowIndex;
+
+        if (!structureChanged && appState.renderOrder[idx] !== rIndex) {
+          structureChanged = true;
+        }
+
+        // Only update local state if no active lock for this row
+        const localLockTime = appState.lastUpdated[rIndex] || 0;
+        if (currentTime > localLockTime) {
+          appState.rows[rIndex] = networkRow;
+        }
+      });
+
+      if (structureChanged) {
+        appState.renderOrder = data.rows.map(r => r.rowIndex);
+        renderFullOrder();
+      } else {
+        reconcileDOMChanges();
+      }
     } catch (err) {
       console.error('Fetch error:', err);
     }
   }
 
-  // reconcileOrder: on first load do a full render; on subsequent
-  // refreshes only patch rows that have changed AND are not pending
-  let firstLoad = true;
-  function reconcileOrder(rows) {
-    if (firstLoad) {
-      renderOrder(rows);
-      firstLoad = false;
-      return;
-    }
-    const container = document.getElementById('running-order');
-    const cards = container.querySelectorAll('[data-row-index]');
-
-    rows.forEach(row => {
-      if (row.rowType === 'spacer') return;
-
-      // Skip any row that has a save in flight
-      if (pendingRows.has(row.rowIndex)) return;
-
-      const existing = container.querySelector(`[data-row-index="${row.rowIndex}"]`);
-      if (!existing) return;
-
-      // Update done state
-      const isDone = row.done;
-      if (row.rowType === 'standard') {
-        existing.classList.toggle('done', isDone);
-        const btn = existing.querySelector('.done-btn');
-        if (btn) {
-          btn.classList.toggle('active', isDone);
-          btn.innerHTML = isDone ? '&#10003;' : '';
-        }
-        // Update award pills selection
-        if (awardOptions.length > 0) {
-          const selectedAwards = row.awardText
-            ? row.awardText.split('|').map(a => a.trim()).filter(Boolean)
-            : [];
-          existing.querySelectorAll('.award-pill').forEach(pill => {
-            pill.classList.toggle('selected', selectedAwards.includes(pill.textContent.trim()));
-          });
-        }
-      } else {
-        // Special row — update done state only
-        existing.classList.toggle('done', isDone);
-        const btn = existing.querySelector('.sp-check');
-        if (btn) {
-          btn.classList.toggle('active', isDone);
-          btn.innerHTML = isDone ? '&#10003;' : '';
-        }
-      }
-    });
-  }
-
   // ── RENDER ───────────────────────────────────────────────
-  function renderOrder(rows) {
+  function renderFullOrder() {
     const container = document.getElementById('running-order');
     const scrollY = window.scrollY;
     container.innerHTML = '';
-    rows.forEach(row => {
+
+    appState.renderOrder.forEach(rIndex => {
+      const row = appState.rows[rIndex];
+      if (!row) return;
       if (row.rowType === 'spacer') {
         const d = document.createElement('div');
         d.className = 'spacer-row';
+        d.dataset.rowIndex = rIndex;
         container.appendChild(d);
       } else if (row.rowType === 'standard') {
         container.appendChild(buildStandardCard(row));
@@ -350,26 +320,60 @@
         container.appendChild(buildSpecialRow(row));
       }
     });
+
     window.scrollTo(0, scrollY);
   }
 
+  function reconcileDOMChanges() {
+    appState.renderOrder.forEach(rIndex => {
+      const row = appState.rows[rIndex];
+      if (!row || row.rowType === 'spacer') return;
+
+      const element = document.querySelector(`[data-row-index="${rIndex}"]`);
+      if (!element) return;
+
+      const isDone = row.done;
+      element.classList.toggle('done', isDone);
+
+      if (row.rowType === 'standard') {
+        const btn = element.querySelector('.done-btn');
+        if (btn) {
+          btn.classList.toggle('active', isDone);
+          btn.innerHTML = isDone ? '&#10003;' : '';
+        }
+        const selectedAwards = row.awardText
+          ? row.awardText.split('|').map(a => a.trim()).filter(Boolean)
+          : [];
+        element.querySelectorAll('.award-pill').forEach(pill => {
+          pill.classList.toggle('selected', selectedAwards.includes(pill.textContent.trim()));
+        });
+      } else {
+        const btn = element.querySelector('.sp-check');
+        if (btn) {
+          btn.classList.toggle('active', isDone);
+          btn.innerHTML = isDone ? '&#10003;' : '';
+        }
+      }
+    });
+  }
+
+  // ── DOM BUILDERS ─────────────────────────────────────────
   function buildStandardCard(row) {
     const card = document.createElement('div');
     card.className = 'row-card' + (row.done ? ' done' : '');
     card.dataset.rowIndex = row.rowIndex;
 
-    // Parse existing awards (pipe-separated)
     const selectedAwards = row.awardText
       ? row.awardText.split('|').map(a => a.trim()).filter(Boolean)
       : [];
 
-    const awardHtml = awardOptions.length > 0 ? `
+    const awardHtml = appState.awardOptions.length > 0 ? `
       <div class="award-section">
         <div class="award-label">&#127942; Award (tap to select, tap again to deselect)</div>
         <div class="award-pills">
-          ${awardOptions.map(opt => `
+          ${appState.awardOptions.map(opt => `
             <button class="award-pill${selectedAwards.includes(opt) ? ' selected' : ''}"
-                    onclick="toggleAward(${row.rowIndex}, '${esc(opt)}', this)">
+                    onclick="toggleAward(${row.rowIndex}, this)">
               ${esc(opt)}
             </button>`).join('')}
         </div>
@@ -396,7 +400,7 @@
     const knownTypes = { award: 'row-award', break: 'row-break', danceoff: 'row-danceoff' };
     const typeClass = knownTypes[row.rowType] || '';
 
-    div.className = `special-row ${typeClass}`;
+    div.className = `special-row ${typeClass}${row.done ? ' done' : ''}`;
     if (!typeClass && row.rowColour) {
       div.style.background = row.rowColour;
       div.style.color = '#fff';
@@ -415,38 +419,40 @@
 
   // ── INTERACTIONS ─────────────────────────────────────────
   async function toggleDone(rowIndex, btn) {
-    const isDone = !btn.classList.contains('active');
-    btn.classList.toggle('active', isDone);
-    btn.innerHTML = isDone ? '&#10003;' : '';
+    // Lock this row for 12 seconds
+    appState.lastUpdated[rowIndex] = Date.now() + 12000;
+
+    const targetState = !appState.rows[rowIndex].done;
+    appState.rows[rowIndex].done = targetState;
+
+    btn.classList.toggle('active', targetState);
+    btn.innerHTML = targetState ? '&#10003;' : '';
     const card = btn.closest('.row-card, .special-row');
-    if (card) card.classList.toggle('done', isDone);
-    await save(rowIndex, { done: isDone });
+    if (card) card.classList.toggle('done', targetState);
+
+    await dispatchSave(rowIndex, { done: targetState });
   }
 
-  // Debounce timers per row — keyed by rowIndex
-  const awardDebounceTimers = {};
+  function toggleAward(rowIndex, btn) {
+    // Lock this row for 12 seconds
+    appState.lastUpdated[rowIndex] = Date.now() + 12000;
 
-  function toggleAward(rowIndex, award, btn) {
     btn.classList.toggle('selected');
 
-    // Mark row as pending immediately so refresh doesn't overwrite
-    pendingRows.add(rowIndex);
+    const card = btn.closest('.row-card');
+    const computedSelection = Array.from(card.querySelectorAll('.award-pill.selected'))
+      .map(b => b.textContent.trim());
 
-    // Cancel any pending save for this row
+    appState.rows[rowIndex].awardText = computedSelection.join('|');
+
     clearTimeout(awardDebounceTimers[rowIndex]);
-
-    // Schedule a save 1.5s after the last tap
     awardDebounceTimers[rowIndex] = setTimeout(async () => {
-      const card = btn.closest('.row-card');
-      const selected = Array.from(card.querySelectorAll('.award-pill.selected'))
-        .map(b => b.textContent.trim());
-      await save(rowIndex, { awardText: selected.join('|') });
+      await dispatchSave(rowIndex, { awardText: appState.rows[rowIndex].awardText });
       delete awardDebounceTimers[rowIndex];
-    }, 1500);
+    }, 1000);
   }
 
-  async function save(rowIndex, payload) {
-    pendingRows.add(rowIndex);
+  async function dispatchSave(rowIndex, payload) {
     showToast('Saving...', false);
     try {
       const res = await fetch(SCRIPT_URL, {
@@ -458,12 +464,10 @@
       if (data.error) throw new Error(data.error);
       showToast('Saved \u2713', false);
     } catch (err) {
-      console.error('Save error:', err);
+      console.error('Save failed:', err);
       showToast('Save failed \u2717', true);
-    } finally {
-      // Remove from pending after a short delay to let the
-      // sheet catch up before we allow refresh to overwrite
-      setTimeout(() => pendingRows.delete(rowIndex), 5000);
+      appState.lastUpdated[rowIndex] = Date.now();
+      fetchData(false);
     }
   }
 
@@ -484,7 +488,7 @@
   }
 
   // ── LIVE REFRESH ─────────────────────────────────────────
-  setInterval(fetchData, 10000);
+  setInterval(() => fetchData(false), 10000);
 </script>
 </body>
 </html>
