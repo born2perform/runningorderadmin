@@ -213,16 +213,18 @@
 <script>
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwREmPTbjTbICoycCjMksAzKQJx9yU7M2Y9QP1z8E8WULTk9iDu4nTVENSjtBper3stOw/exec';
 
-  // ── GENERATIONAL TRACKING STATE ENGINE ───────────────────
+  // ── STATE ─────────────────────────────────────────────────
+  // rowLocked: simple boolean per row — true while a save is in flight
+  // Once the save promise resolves (success or failure), lock is released
+  // and the next refresh can freely update that row from the sheet
   const appState = {
     compName: '',
     awardOptions: [],
     rows: {},
-    renderOrder: [],
-    localVersion: {},
-    serverConfirmedVersion: {}
+    renderOrder: []
   };
 
+  const rowLocked   = {};  // true while save in flight
   const awardDebounceTimers = {};
 
   // ── LOADING SCREEN ───────────────────────────────────────
@@ -262,7 +264,7 @@
     }
   }, 18);
 
-  // ── FETCH & STATE ENGINE ─────────────────────────────────
+  // ── FETCH & RECONCILE ────────────────────────────────────
   async function fetchData(forceFullRender = false) {
     try {
       const res  = await fetch(SCRIPT_URL);
@@ -273,7 +275,8 @@
       appState.awardOptions = data.awardOptions || [];
       document.getElementById('comp-name').textContent = appState.compName;
 
-      let structureChanged = forceFullRender || (appState.renderOrder.length !== data.rows.length);
+      let structureChanged = forceFullRender ||
+        (appState.renderOrder.length !== data.rows.length);
 
       data.rows.forEach((networkRow, idx) => {
         const rIndex = networkRow.rowIndex;
@@ -282,14 +285,8 @@
           structureChanged = true;
         }
 
-        // Initialise version tracking for new rows
-        if (appState.localVersion[rIndex] === undefined) {
-          appState.localVersion[rIndex] = 0;
-          appState.serverConfirmedVersion[rIndex] = 0;
-        }
-
-        // Only accept network data if no unconfirmed local changes are pending
-        if (appState.localVersion[rIndex] === appState.serverConfirmedVersion[rIndex]) {
+        // Only update state if no save is currently in flight for this row
+        if (!rowLocked[rIndex]) {
           appState.rows[rIndex] = networkRow;
         }
       });
@@ -334,6 +331,9 @@
       const row = appState.rows[rIndex];
       if (!row || row.rowType === 'spacer') return;
 
+      // Skip DOM update if save is in flight — UI already reflects local change
+      if (rowLocked[rIndex]) return;
+
       const element = document.querySelector(`[data-row-index="${rIndex}"]`);
       if (!element) return;
 
@@ -346,8 +346,9 @@
           btn.classList.toggle('active', isDone);
           btn.innerHTML = isDone ? '&#10003;' : '';
         }
+        // Split on comma — matches Google Sheets multi-select format
         const selectedAwards = row.awardText
-          ? row.awardText.split('|').map(a => a.trim()).filter(Boolean)
+          ? row.awardText.split(',').map(a => a.trim()).filter(Boolean)
           : [];
         element.querySelectorAll('.award-pill').forEach(pill => {
           pill.classList.toggle('selected', selectedAwards.includes(pill.textContent.trim()));
@@ -368,8 +369,9 @@
     card.className = 'row-card' + (row.done ? ' done' : '');
     card.dataset.rowIndex = row.rowIndex;
 
+    // Split on comma — matches Google Sheets multi-select format
     const selectedAwards = row.awardText
-      ? row.awardText.split('|').map(a => a.trim()).filter(Boolean)
+      ? row.awardText.split(',').map(a => a.trim()).filter(Boolean)
       : [];
 
     const awardHtml = appState.awardOptions.length > 0 ? `
@@ -424,8 +426,7 @@
 
   // ── INTERACTIONS ─────────────────────────────────────────
   async function toggleDone(rowIndex, btn) {
-    if (appState.localVersion[rowIndex] === undefined) appState.localVersion[rowIndex] = 0;
-    appState.localVersion[rowIndex]++;
+    rowLocked[rowIndex] = true;
 
     const targetState = !appState.rows[rowIndex].done;
     appState.rows[rowIndex].done = targetState;
@@ -435,12 +436,13 @@
     const card = btn.closest('.row-card, .special-row');
     if (card) card.classList.toggle('done', targetState);
 
-    await dispatchSave(rowIndex, { done: targetState, version: appState.localVersion[rowIndex] });
+    await dispatchSave(rowIndex, { done: targetState });
+    rowLocked[rowIndex] = false;
   }
 
   function toggleAward(rowIndex, btn) {
-    if (appState.localVersion[rowIndex] === undefined) appState.localVersion[rowIndex] = 0;
-    appState.localVersion[rowIndex]++;
+    // Lock immediately so refresh doesn't overwrite during debounce window
+    rowLocked[rowIndex] = true;
 
     btn.classList.toggle('selected');
 
@@ -448,16 +450,15 @@
     const computedSelection = Array.from(card.querySelectorAll('.award-pill.selected'))
       .map(b => b.textContent.trim());
 
-    appState.rows[rowIndex].awardText = computedSelection.join('|');
+    // Store in comma format to match Google Sheets multi-select
+    appState.rows[rowIndex].awardText = computedSelection.join(',');
 
     clearTimeout(awardDebounceTimers[rowIndex]);
     awardDebounceTimers[rowIndex] = setTimeout(async () => {
-      await dispatchSave(rowIndex, {
-        awardText: appState.rows[rowIndex].awardText,
-        version: appState.localVersion[rowIndex]
-      });
+      await dispatchSave(rowIndex, { awardText: appState.rows[rowIndex].awardText });
+      rowLocked[rowIndex] = false;
       delete awardDebounceTimers[rowIndex];
-    }, 1000);
+    }, 500);
   }
 
   async function dispatchSave(rowIndex, payload) {
@@ -470,19 +471,12 @@
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-
-      // Record version confirmed by server
-      if (data.version !== undefined) {
-        appState.serverConfirmedVersion[rowIndex] = data.version;
-      }
       showToast('Saved \u2713', false);
     } catch (err) {
       console.error('Save failed:', err);
       showToast('Save failed \u2717', true);
-      // Reset versions on failure so next refresh can recover
-      appState.localVersion[rowIndex] = 0;
-      appState.serverConfirmedVersion[rowIndex] = 0;
-      fetchData(false);
+      // Release lock on failure so refresh can recover from sheet
+      rowLocked[rowIndex] = false;
     }
   }
 
