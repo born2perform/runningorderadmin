@@ -404,12 +404,13 @@
 
       appState.compName     = data.compName || '';
       appState.awardOptions = data.awardOptions || [];
-      // Split comp name into city and date for styled header
-      // Expected format: "Coventry - 14 Jun 2026" or "Coventry — 14 Jun 2026"
-      const compParts = appState.compName.split(/\s*[-—]\s*/);
+      // Strip emojis and split comp name into city and date for styled header
+      // Expected format: "⭐ Coventry - 14 Jun 2026" or "Coventry — 14 Jun 2026"
+      const cleanComp = appState.compName.replace(/[^\u0000-\u007E\u00A0-\u024F\s]/g, '').trim();
+      const compParts = cleanComp.split(/\s*[-—]\s*/);
       const cityEl = document.getElementById('comp-name-city');
       const dateEl = document.getElementById('comp-name-date');
-      if (cityEl) cityEl.textContent = compParts[0] || appState.compName;
+      if (cityEl) cityEl.textContent = compParts[0] || cleanComp;
       if (dateEl) dateEl.textContent = compParts.length > 1 ? '— ' + compParts.slice(1).join(' — ') : '';
 
       let structureChanged = forceFullRender ||
