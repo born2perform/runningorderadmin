@@ -179,6 +179,74 @@
     }
     .saving-toast.show { opacity: 1; }
     .saving-toast.error { background: #d93025; }
+
+    /* ── AWARDS BUTTON (header) ─────────────────────────── */
+    .awards-btn {
+      display: flex; align-items: center; gap: 5px;
+      background: rgba(241,194,50,0.15);
+      color: #f1c232;
+      border: 1px solid rgba(241,194,50,0.4);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 0.75rem; font-weight: 700;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      transition: all 0.2s;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+    .awards-btn:active { background: rgba(241,194,50,0.3); }
+    .awards-btn:disabled {
+      opacity: 0.4; cursor: not-allowed;
+    }
+    .awards-btn.generating {
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; } 50% { opacity: 0.5; }
+    }
+
+    /* ── AWARDS MODAL ───────────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+      z-index: 300; display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal-box {
+      background: #fff; border-radius: 12px; overflow: hidden;
+      max-width: 380px; width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
+    .modal-header {
+      background: #1a1a1a; padding: 20px 24px;
+    }
+    .modal-header-title {
+      font-size: 1rem; font-weight: 900; color: #f1c232;
+      text-transform: uppercase; letter-spacing: 2px;
+    }
+    .modal-header-sub {
+      font-size: 0.75rem; color: #aaa; margin-top: 4px;
+    }
+    .modal-body { padding: 20px 24px; color: #333; font-size: 0.9rem; line-height: 1.5; }
+    .modal-warning {
+      background: #fff8e1; border-left: 4px solid #f1c232;
+      padding: 12px 16px; border-radius: 4px; margin-bottom: 16px;
+      font-size: 0.85rem; color: #5a3e00;
+    }
+    .modal-footer {
+      padding: 16px 24px; border-top: 1px solid #f0f0f0;
+      display: flex; gap: 10px; justify-content: flex-end;
+    }
+    .modal-btn {
+      padding: 10px 20px; border-radius: 6px; font-size: 0.85rem;
+      font-weight: 700; border: none; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .modal-btn-cancel { background: #f0f0f0; color: #333; }
+    .modal-btn-confirm { background: #f1c232; color: #3d2900; }
+
   </style>
 </head>
 <body>
@@ -201,7 +269,10 @@
 <!-- MAIN APP -->
 <div id="app">
   <div class="app-header">
-    <div class="app-header-title">B2P LIVE TRACKER</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <div class="app-header-title">B2P LIVE TRACKER</div>
+      <button class="awards-btn" id="awards-btn" onclick="handleAwardsBtn()">🏆 Export</button>
+    </div>
     <div class="comp-name" id="comp-name">Loading...</div>
     <div class="sync-bar"><span class="sync-dot"></span> LIVE SYNC ACTIVE</div>
   </div>
@@ -496,8 +567,142 @@
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+
+  // ── AWARDS SUMMARY ───────────────────────────────────────
+  function handleAwardsBtn() {
+    // Check all standard rows are done
+    const standardRows = appState.renderOrder
+      .map(i => appState.rows[i])
+      .filter(r => r && r.rowType === 'standard');
+
+    const undone = standardRows.filter(r => !r.done);
+
+    if (undone.length > 0) {
+      // Block — show how many are incomplete
+      document.getElementById('modal-sub').textContent = 'Not ready';
+      document.getElementById('modal-body').innerHTML = `
+        <div class="modal-warning">
+          ⚠️ <strong>${undone.length} routine${undone.length > 1 ? 's have' : ' has'} not been marked as done.</strong><br>
+          All routines must be ticked before generating the awards summary.
+        </div>
+        Please go back and mark all routines as complete, then try again.
+      `;
+      document.getElementById('modal-footer').innerHTML = `
+        <button class="modal-btn modal-btn-confirm" onclick="closeModal()">OK, got it</button>
+      `;
+      document.getElementById('awards-modal').classList.remove('hidden');
+      return;
+    }
+
+    // Count awarded acts
+    const awardedCount = standardRows.filter(r => r.awardText && r.awardText.trim()).length;
+
+    // All done — show confirmation
+    document.getElementById('modal-sub').textContent = 'All routines complete';
+    document.getElementById('modal-body').innerHTML = `
+      All routines are marked as done.<br><br>
+      <strong>${awardedCount} act${awardedCount !== 1 ? 's' : ''}</strong> received awards and will be included in the summary.<br><br>
+      This will:
+      <ul style="margin:10px 0 0 16px;font-size:0.85rem;line-height:1.8;">
+        <li>Create a Google Sheet and PDF in Drive</li>
+        <li>Update the master awards log</li>
+        <li>Email the summary to the team</li>
+      </ul>
+    `;
+    document.getElementById('modal-footer').innerHTML = `
+      <button class="modal-btn modal-btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn modal-btn-confirm" onclick="confirmGenerate()">Generate Now</button>
+    `;
+    document.getElementById('awards-modal').classList.remove('hidden');
+  }
+
+  function closeModal() {
+    document.getElementById('awards-modal').classList.add('hidden');
+  }
+
+  async function confirmGenerate() {
+    closeModal();
+    const btn = document.getElementById('awards-btn');
+    btn.classList.add('generating');
+    btn.textContent = '⏳ Generating...';
+    btn.disabled = true;
+
+    showToast('Generating awards summary...', false);
+
+    try {
+      const res = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'generateAwards' }),
+        headers: { 'Content-Type': 'text/plain' }
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      // Success modal
+      document.getElementById('modal-sub').textContent = 'Done!';
+      document.getElementById('modal-body').innerHTML = `
+        <div style="text-align:center;padding:10px 0;">
+          <div style="font-size:2.5rem;margin-bottom:12px;">🏆</div>
+          <div style="font-weight:700;font-size:1rem;margin-bottom:8px;">Awards summary generated!</div>
+          <div style="font-size:0.85rem;color:#666;margin-bottom:16px;">${data.awardCount} award${data.awardCount !== 1 ? 's' : ''} recorded for ${data.compName}</div>
+          <a href="${data.folderUrl}" target="_blank"
+             style="display:inline-block;background:#f1c232;color:#3d2900;padding:10px 24px;border-radius:4px;font-weight:700;font-size:0.85rem;text-decoration:none;">
+            View Drive Folder →
+          </a>
+        </div>
+      `;
+      document.getElementById('modal-footer').innerHTML = `
+        <button class="modal-btn modal-btn-confirm" onclick="closeModal()">Close</button>
+      `;
+      document.getElementById('awards-modal').classList.remove('hidden');
+
+      showToast('Awards summary sent ✓', false);
+
+    } catch (err) {
+      console.error('Awards generation failed:', err);
+      showToast('Generation failed ✗', true);
+      document.getElementById('modal-sub').textContent = 'Error';
+      document.getElementById('modal-body').innerHTML = `
+        <div class="modal-warning">⚠️ Something went wrong: ${err.message}</div>
+        Please try again or contact support.
+      `;
+      document.getElementById('modal-footer').innerHTML = `
+        <button class="modal-btn modal-btn-confirm" onclick="closeModal()">Close</button>
+      `;
+      document.getElementById('awards-modal').classList.remove('hidden');
+    } finally {
+      btn.classList.remove('generating');
+      btn.innerHTML = '🏆 Generate Awards Summary';
+      btn.disabled = false;
+    }
+  }
+
+  // Close modal on overlay tap
+  document.getElementById('awards-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
   // ── LIVE REFRESH ─────────────────────────────────────────
   setInterval(() => fetchData(false), 10000);
 </script>
+
+<!-- AWARDS MODAL -->
+<div class="modal-overlay hidden" id="awards-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-header-title">Awards Summary</div>
+      <div class="modal-header-sub" id="modal-sub">Ready to generate</div>
+    </div>
+    <div class="modal-body" id="modal-body">
+      This will generate a PDF and Google Sheet of all awards,
+      email them to the team, and update the master awards log.
+    </div>
+    <div class="modal-footer" id="modal-footer">
+      <button class="modal-btn modal-btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn modal-btn-confirm" onclick="confirmGenerate()">Generate Now</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
