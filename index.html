@@ -514,7 +514,7 @@
 
     const awardHtml = appState.awardOptions.length > 0 ? `
       <div class="award-section">
-        <div class="award-label">&#127942; Award (tap to select, tap again to deselect)</div>
+        <div class="award-label">&#127942; Award</div>
         <div class="award-pills">
           ${appState.awardOptions.map(opt => `
             <button class="award-pill${selectedAwards.includes(opt) ? ' selected' : ''}"
@@ -756,6 +756,14 @@
       btn.disabled = false;
     }
   }
+
+  // Re-enable button whenever modal is closed
+  const _origCloseModal = closeModal;
+  closeModal = function() {
+    _origCloseModal();
+    const btn = document.getElementById('awards-btn');
+    if (btn) { btn.disabled = false; btn.classList.remove('generating'); btn.innerHTML = '🏆 Export'; }
+  };
 
   // Close modal on overlay tap
   document.getElementById('awards-modal').addEventListener('click', function(e) {
