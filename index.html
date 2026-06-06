@@ -510,14 +510,29 @@
   }, 18);
 
   // ── FETCH & RECONCILE ────────────────────────────────────
-  async function fetchData(forceFullRender = false) {
+async function fetchData(forceFullRender = false) {
     try {
       const res  = await fetch(SCRIPT_URL);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
 
       appState.compName     = data.compName || '';
-      appState.awardOptions = data.awardOptions || [];
+      
+      // ─── REPLACE THE OLD appState.awardOptions LINE WITH THIS ───
+      if (data.awardOptions) {
+        // 1. Strip the asterisks so clicking matches up with your template strings
+        appState.awardOptions = data.awardOptions.map(option => {
+          return option.startsWith('*') ? option.substring(1).trim() : option.trim();
+        });
+
+        // 2. Remember which clean strings originally had an asterisk
+        appState.individualAwards = data.awardOptions
+          .filter(option => option.startsWith('*'))
+          .map(option => option.substring(1).trim());
+      } else {
+        appState.awardOptions = [];
+        appState.individualAwards = [];
+      }
       // Strip emojis and split comp name into city and date for styled header
       // Expected format: "⭐ Coventry - 14 Jun 2026" or "Coventry — 14 Jun 2026"
       const cleanComp = appState.compName.replace(/[^\u0000-\u007E\u00A0-\u024F\s]/g, '').trim();
@@ -727,9 +742,13 @@
     rowLocked[rowIndex] = false;
   }
 
-  function toggleAward(rowIndex, btn) {
-    const award      = btn.dataset.award;
-    const isIndiv    = btn.dataset.individual === 'true';
+function toggleAward(rowIndex, btn) {
+    const rawAward   = btn.dataset.award;
+    // Clean up any stray symbols or spaces just in case
+    const award      = rawAward ? rawAward.replace('*', '').trim() : '';
+    
+    // Check against our brand new helper list to see if this is an individual award!
+    const isIndiv    = appState.individualAwards && appState.individualAwards.includes(award);
     const isSelected = btn.classList.contains('selected');
 
     if (isIndiv) {
