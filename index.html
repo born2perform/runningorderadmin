@@ -626,7 +626,6 @@
             const hasInd = !!indEntry;
             return `<button class="award-pill${isSelected ? ' selected' : ''}${hasInd ? ' has-individual' : ''}"
                     onclick="toggleAward(${row.rowIndex}, this)"
-                    oncontextmenu="openBs(event, ${row.rowIndex}, this)"
                     data-award="${esc(opt)}"
                     data-rowindex="${row.rowIndex}"
                     style="position:relative">
@@ -691,28 +690,33 @@
   }
 
   function toggleAward(rowIndex, btn) {
-    // If already selected — on desktop, do nothing (right-click opens sheet)
-    // On touch, long press opens sheet; single tap deselects
+    const award = btn.dataset.award;
+
     if (btn.classList.contains('selected')) {
-      // Deselect on single tap (touch users use long press for individual name)
-      bsRowIndex = rowIndex;
-      bsBtn = btn;
-      bsAward = btn.dataset.award;
-      bsDeselect();
-      return;
+      // ── Deselect ──────────────────────────────────────────
+      rowLocked[rowIndex] = true;
+      btn.classList.remove('selected', 'has-individual');
+      const current = appState.rows[rowIndex].awardText || '';
+      const updated = current.split(',').map(a => a.trim())
+        .filter(a => a && !a.startsWith(award + ':') && a !== award)
+        .join(',');
+      appState.rows[rowIndex].awardText = updated;
+      scheduleAwardSave(rowIndex);
+    } else {
+      // ── Select as team award ───────────────────────────────
+      rowLocked[rowIndex] = true;
+      btn.classList.add('selected');
+      btn.classList.remove('has-individual');
+      const current = appState.rows[rowIndex].awardText || '';
+      const others = current.split(',').map(a => a.trim())
+        .filter(a => a && !a.startsWith(award + ':') && a !== award);
+      others.push(award);
+      appState.rows[rowIndex].awardText = others.join(',');
+      scheduleAwardSave(rowIndex);
     }
+  }
 
-    // Not yet selected — select as team award immediately
-    rowLocked[rowIndex] = true;
-    btn.classList.add('selected');
-    btn.classList.remove('has-individual');
-
-    // Add to awardText as plain award (team)
-    const current = appState.rows[rowIndex].awardText || '';
-    const others = current.split(',').map(a => a.trim()).filter(a => a && !a.startsWith(btn.dataset.award));
-    others.push(btn.dataset.award);
-    appState.rows[rowIndex].awardText = others.join(',');
-
+  function scheduleAwardSave(rowIndex) {
     clearTimeout(awardDebounceTimers[rowIndex]);
     awardDebounceTimers[rowIndex] = setTimeout(async () => {
       await dispatchSave(rowIndex, { awardText: appState.rows[rowIndex].awardText });
@@ -923,9 +927,9 @@
   let bsBtn      = null;
   let bsAward    = null;
   let bsLongPressTimer = null;
+  let bsLongPressFired = false;
 
-  function openBs(e, rowIndex, btn) {
-    if (e) e.preventDefault();
+  function openBs(rowIndex, btn) {
     bsRowIndex = rowIndex;
     bsBtn      = btn;
     bsAward    = btn.dataset.award;
@@ -958,81 +962,92 @@
     document.getElementById('bs-name2').focus();
   }
 
-  function bsDeselect() {
-    closeBs();
-    if (!bsBtn) return;
-    // Remove this award from selection
-    bsBtn.classList.remove('selected', 'has-individual');
-    const card = bsBtn.closest('.row-card');
-    // Remove award (with or without name) from awardText
-    const current = appState.rows[bsRowIndex].awardText || '';
-    const updated = current.split(',')
-      .map(a => a.trim())
-      .filter(a => !a.startsWith(bsAward) && a !== bsAward)
-      .join(',');
-    appState.rows[bsRowIndex].awardText = updated;
-    saveAwards(bsRowIndex, card);
-  }
-
   function bsConfirm() {
     const name1 = document.getElementById('bs-name1').value.trim();
     const name2 = document.getElementById('bs-name2').value.trim();
     closeBs();
-    if (!bsBtn) return;
+    if (bsBtn === null || bsRowIndex === null) return;
 
+    // Make sure pill is selected
     bsBtn.classList.add('selected');
 
+    const current = appState.rows[bsRowIndex].awardText || '';
+    const others = current.split(',').map(a => a.trim())
+      .filter(a => a && !a.startsWith(bsAward + ':') && a !== bsAward);
+
     if (name1) {
-      // Store as "Award:Name1;Name2" (name2 only if present)
       const nameStr = name2 ? name1 + ';' + name2 : name1;
       bsBtn.classList.add('has-individual');
-      // Update awardText — replace existing entry for this award
-      const current = appState.rows[bsRowIndex].awardText || '';
-      const others = current.split(',').map(a => a.trim())
-        .filter(a => a && !a.startsWith(bsAward + ':') && a !== bsAward);
       others.push(bsAward + ':' + nameStr);
-      appState.rows[bsRowIndex].awardText = others.join(',');
     } else {
-      // No name entered — treat as team award
       bsBtn.classList.remove('has-individual');
-      const current = appState.rows[bsRowIndex].awardText || '';
-      const others = current.split(',').map(a => a.trim())
-        .filter(a => a && !a.startsWith(bsAward + ':') && a !== bsAward);
       others.push(bsAward);
-      appState.rows[bsRowIndex].awardText = others.join(',');
     }
 
-    const card = bsBtn.closest('.row-card');
-    saveAwards(bsRowIndex, card);
+    appState.rows[bsRowIndex].awardText = others.join(',');
+    rowLocked[bsRowIndex] = true;
+    scheduleAwardSave(bsRowIndex);
   }
 
-  function saveAwards(rowIndex, card) {
-    rowLocked[rowIndex] = true;
-    clearTimeout(awardDebounceTimers[rowIndex]);
-    awardDebounceTimers[rowIndex] = setTimeout(async () => {
-      await dispatchSave(rowIndex, { awardText: appState.rows[rowIndex].awardText });
-      rowLocked[rowIndex] = false;
-      delete awardDebounceTimers[rowIndex];
-    }, 500);
-  }
-
-  // Long press detection for touch devices
+  // ── Long press on touch devices ───────────────────────────
   document.addEventListener('touchstart', function(e) {
     const pill = e.target.closest('.award-pill.selected');
     if (!pill) return;
+    bsLongPressFired = false;
     bsLongPressTimer = setTimeout(() => {
+      bsLongPressFired = true;
       const rowIndex = parseInt(pill.dataset.rowindex);
-      openBs(null, rowIndex, pill);
-    }, 500);
+      openBs(rowIndex, pill);
+    }, 600);
   }, { passive: true });
 
-  document.addEventListener('touchend', function() {
+  document.addEventListener('touchend', function(e) {
     clearTimeout(bsLongPressTimer);
-  }, { passive: true });
+    // If long press fired, prevent the subsequent click from toggling
+    if (bsLongPressFired) {
+      bsLongPressFired = false;
+      e.preventDefault && e.preventDefault();
+    }
+  });
 
   document.addEventListener('touchmove', function() {
     clearTimeout(bsLongPressTimer);
+    bsLongPressFired = false;
   }, { passive: true });
+
+  // ── Right-click / two-finger tap on desktop ───────────────
+  document.addEventListener('contextmenu', function(e) {
+    const pill = e.target.closest('.award-pill.selected');
+    if (!pill) return;
+    e.preventDefault();
+    const rowIndex = parseInt(pill.dataset.rowindex);
+    openBs(rowIndex, pill);
+  });
+
+  // ── Hover hint: "+ name" link on desktop ─────────────────
+  document.addEventListener('mouseover', function(e) {
+    const pill = e.target.closest('.award-pill.selected');
+    if (!pill) return;
+    if (!pill.querySelector('.pill-name-hint')) {
+      const hint = document.createElement('span');
+      hint.className = 'pill-name-hint';
+      hint.textContent = ' + name';
+      hint.style.cssText = 'font-size:0.7rem;opacity:0.7;text-decoration:underline;cursor:pointer;';
+      hint.addEventListener('click', function(ev) {
+        ev.stopPropagation();
+        const rowIndex = parseInt(pill.dataset.rowindex);
+        openBs(rowIndex, pill);
+      });
+      pill.appendChild(hint);
+    }
+  });
+
+  document.addEventListener('mouseout', function(e) {
+    const pill = e.target.closest('.award-pill.selected');
+    if (!pill) return;
+    const hint = pill.querySelector('.pill-name-hint');
+    if (hint) hint.remove();
+  });
 
   // ── LIVE REFRESH ─────────────────────────────────────────
   setInterval(() => fetchData(false), 10000);
