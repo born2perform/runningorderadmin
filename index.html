@@ -636,7 +636,50 @@
 
 
   // ── AWARDS SUMMARY ───────────────────────────────────────
+  function resetModal() {
+    // Restore modal to its default options form state
+    document.getElementById('modal-sub').textContent = 'Ready to generate';
+
+    // Rebuild modal body with clean form
+    document.getElementById('modal-body').innerHTML = `
+      <div class="modal-section-title">Send email to</div>
+      <div class="email-row">
+        <input type="checkbox" id="email1-check" checked>
+        <input type="text" id="email1-val" value="admin@born2performevents.co.uk">
+      </div>
+      <div class="email-row">
+        <input type="checkbox" id="email2-check" checked>
+        <input type="text" id="email2-val" value="rainfingers2022@gmail.com">
+      </div>
+      <div class="email-row">
+        <input type="checkbox" id="email3-check" checked>
+        <input type="text" id="email3-val" value="info@born2performevents.co.uk">
+      </div>
+      <div class="modal-section-title">Additional recipients</div>
+      <input type="text" class="extra-email-input" id="extra-emails"
+             placeholder="e.g. school@example.com, other@example.com">
+      <div class="modal-section-title">Options</div>
+      <div class="option-row">
+        <input type="checkbox" id="opt-drive" checked>
+        <label for="opt-drive">Save PDF &amp; Sheet to Google Drive</label>
+      </div>
+      <div class="option-row">
+        <input type="checkbox" id="opt-masterlog" checked>
+        <label for="opt-masterlog">Update master awards log</label>
+      </div>
+    `;
+
+    // Restore default footer buttons
+    document.getElementById('modal-footer').innerHTML = `
+      <button class="modal-btn modal-btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn modal-btn-confirm" onclick="confirmGenerate()">Generate Now</button>
+    `;
+  }
+
   function handleAwardsBtn() {
+    // Always fully reset modal to clean state before showing
+    resetModal();
+
     // Check all standard rows are done
     const standardRows = appState.renderOrder
       .map(i => appState.rows[i])
@@ -645,7 +688,6 @@
     const undone = standardRows.filter(r => !r.done);
 
     if (undone.length > 0) {
-      // Block — show how many are incomplete
       document.getElementById('modal-sub').textContent = 'Not ready';
       document.getElementById('modal-body').innerHTML = `
         <div class="modal-warning">
@@ -657,29 +699,13 @@
       document.getElementById('modal-footer').innerHTML = `
         <button class="modal-btn modal-btn-confirm" onclick="closeModal()">OK, got it</button>
       `;
-      // Hide the form fields when showing error
-      document.getElementById('modal-body').querySelectorAll('.modal-section-title, .email-row, .extra-email-input, .option-row').forEach(el => el.style.display = 'none');
       document.getElementById('awards-modal').classList.remove('hidden');
       return;
     }
 
     // All done — show the options form
     document.getElementById('modal-sub').textContent = 'All routines complete';
-    // Reset form fields to defaults
-    ['email1-check','email2-check','email3-check','opt-drive','opt-masterlog'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) { el.checked = true; el.closest('.email-row, .option-row') && (el.closest('.email-row, .option-row').style.display = ''); }
-    });
-    document.getElementById('extra-emails').value = '';
-    // Show all form elements
-    document.getElementById('modal-body').querySelectorAll('.modal-section-title, .email-row, .extra-email-input, .option-row').forEach(el => el.style.display = '');
-    // Reset warning if any
-    const warn = document.getElementById('modal-body').querySelector('.modal-warning');
-    if (warn) warn.remove();
-    document.getElementById('modal-footer').innerHTML = `
-      <button class="modal-btn modal-btn-cancel" onclick="closeModal()">Cancel</button>
-      <button class="modal-btn modal-btn-confirm" onclick="confirmGenerate()">Generate Now</button>
-    `;
+    document.getElementById('awards-modal').classList.remove('hidden');
     document.getElementById('awards-modal').classList.remove('hidden');
   }
 
