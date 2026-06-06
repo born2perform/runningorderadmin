@@ -326,6 +326,18 @@
     .awards-btn:disabled { opacity: 0.35; cursor: not-allowed; }
     .awards-btn.generating { animation: pulse 1.5s infinite; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+    .export-dots::after {
+      content: '';
+      animation: exportDots 1.5s infinite;
+      display: inline-block; width: 1.5em; text-align: left;
+    }
+    @keyframes exportDots {
+      0%   { content: ''; }
+      25%  { content: '.'; }
+      50%  { content: '..'; }
+      75%  { content: '...'; }
+      100% { content: ''; }
+    }
 
     /* ── MODAL FORM ELEMENTS ─────────────────────────────── */
     .modal-section-title {
@@ -586,12 +598,24 @@
           btn.classList.toggle('active', isDone);
           btn.innerHTML = isDone ? '&#10003;' : '';
         }
-        // Split on comma — matches Google Sheets multi-select format
-        const selectedAwards = row.awardText
-          ? row.awardText.split(',').map(a => a.trim()).filter(Boolean)
+        // Parse selected awards stripping :Name suffix
+        const selectedAwardKeys = row.awardText
+          ? row.awardText.split(',').map(a => {
+              const ci = a.indexOf(':');
+              return ci !== -1 ? a.substring(0, ci).trim() : a.trim();
+            }).filter(Boolean)
           : [];
         element.querySelectorAll('.award-pill').forEach(pill => {
-          pill.classList.toggle('selected', selectedAwards.includes(pill.textContent.trim()));
+          const award      = pill.dataset.award;
+          const isSelected = selectedAwardKeys.includes(award);
+          pill.classList.toggle('selected', isSelected);
+          if (isSelected) {
+            const indEntry = row.awardText.split(',').map(a => a.trim())
+              .find(a => a.startsWith(award + ':'));
+            pill.classList.toggle('has-individual', !!indEntry);
+          } else {
+            pill.classList.remove('has-individual');
+          }
         });
       } else {
         const btn = element.querySelector('.sp-check');
@@ -610,26 +634,37 @@
     card.dataset.rowIndex = row.rowIndex;
 
     // Split on comma — matches Google Sheets multi-select format
+    // Parse selected awards — strip :Name suffix for comparison
     const selectedAwards = row.awardText
-      ? row.awardText.split(',').map(a => a.trim()).filter(Boolean)
+      ? row.awardText.split(',').map(a => {
+          const colonIdx = a.indexOf(':');
+          return colonIdx !== -1 ? a.substring(0, colonIdx).trim() : a.trim();
+        }).filter(Boolean)
       : [];
 
     const awardHtml = appState.awardOptions.length > 0 ? `
       <div class="award-section">
-        <div class="award-label">&#127942; Award (tap to select, tap again to deselect)</div>
+        <div class="award-label">&#127942; Award(s)</div>
         <div class="award-pills">
           ${appState.awardOptions.map(opt => {
-            const isSelected = selectedAwards.includes(opt);
-            // Check if this award has an individual name
-            const indKey = opt + ':';
-            const indEntry = row.awardText ? row.awardText.split(',').map(a=>a.trim()).find(a => a.startsWith(indKey)) : null;
-            const hasInd = !!indEntry;
+            // Detect individual award (asterisk prefix), strip for display
+            const isIndividual = opt.startsWith('*');
+            const displayName  = isIndividual ? opt.slice(1).trim() : opt;
+            const awardKey     = displayName; // key used in awardText storage
+
+            // Check selected state and individual name
+            const isSelected = selectedAwards.some(a => a === awardKey || a.startsWith(awardKey + ':'));
+            const indEntry   = row.awardText ? row.awardText.split(',').map(a => a.trim())
+                                 .find(a => a.startsWith(awardKey + ':')) : null;
+            const hasInd     = !!indEntry;
+
             return `<button class="award-pill${isSelected ? ' selected' : ''}${hasInd ? ' has-individual' : ''}"
                     onclick="toggleAward(${row.rowIndex}, this)"
-                    data-award="${esc(opt)}"
+                    data-award="${esc(displayName)}"
+                    data-individual="${isIndividual}"
                     data-rowindex="${row.rowIndex}"
                     style="position:relative">
-              ${esc(opt)}
+              ${esc(displayName)}
             </button>`;
           }).join('')}
         </div>
@@ -675,6 +710,9 @@
 
   // ── INTERACTIONS ─────────────────────────────────────────
   async function toggleDone(rowIndex, btn) {
+    // Clear any pending award save for this row to avoid concurrent writes
+    clearTimeout(awardDebounceTimers[rowIndex]);
+    delete awardDebounceTimers[rowIndex];
     rowLocked[rowIndex] = true;
 
     const targetState = !appState.rows[rowIndex].done;
@@ -690,10 +728,20 @@
   }
 
   function toggleAward(rowIndex, btn) {
-    const award = btn.dataset.award;
+    const award      = btn.dataset.award;
+    const isIndiv    = btn.dataset.individual === 'true';
+    const isSelected = btn.classList.contains('selected');
 
-    if (btn.classList.contains('selected')) {
-      // ── Deselect ──────────────────────────────────────────
+    if (isIndiv) {
+      // Individual award — always open bottom sheet
+      // Lock row while sheet is open so refresh doesn't interfere
+      rowLocked[rowIndex] = true;
+      openBs(rowIndex, btn);
+      return;
+    }
+
+    if (isSelected) {
+      // ── Deselect team award ────────────────────────────────
       rowLocked[rowIndex] = true;
       btn.classList.remove('selected', 'has-individual');
       const current = appState.rows[rowIndex].awardText || '';
@@ -856,10 +904,8 @@
     closeModal();
     const btn = document.getElementById('awards-btn');
     btn.classList.add('generating');
-    btn.innerHTML = '⏳';
+    btn.innerHTML = '⏳ Exporting<span class="export-dots"></span>';
     btn.disabled = true;
-
-    showToast('Generating awards summary...', false);
 
     try {
       const res = await fetch(SCRIPT_URL, {
@@ -926,13 +972,12 @@
   let bsRowIndex = null;
   let bsBtn      = null;
   let bsAward    = null;
-  let bsLongPressTimer = null;
-  let bsLongPressFired = false;
 
   function openBs(rowIndex, btn) {
     bsRowIndex = rowIndex;
     bsBtn      = btn;
     bsAward    = btn.dataset.award;
+    // Row stays locked until confirmed/deselected/cancelled
 
     // Pre-fill if individual name already set
     const awardText = appState.rows[rowIndex] ? appState.rows[rowIndex].awardText || '' : '';
@@ -951,9 +996,13 @@
     setTimeout(() => document.getElementById('bs-name1').focus(), 350);
   }
 
-  function closeBs() {
+  function closeBs(cancelled) {
     document.getElementById('bs-overlay').classList.remove('show');
     document.getElementById('bottom-sheet').classList.remove('show');
+    // If cancelled (overlay tap or explicit cancel), unlock row without saving
+    if (cancelled && bsRowIndex !== null) {
+      rowLocked[bsRowIndex] = false;
+    }
   }
 
   function showSecondName() {
@@ -965,14 +1014,15 @@
   function bsConfirm() {
     const name1 = document.getElementById('bs-name1').value.trim();
     const name2 = document.getElementById('bs-name2').value.trim();
-    closeBs();
-    if (bsBtn === null || bsRowIndex === null) return;
+    if (bsBtn === null || bsRowIndex === null) { closeBs(true); return; }
+
+    closeBs(false); // don't unlock yet — scheduleAwardSave handles unlock
 
     // Make sure pill is selected
     bsBtn.classList.add('selected');
 
     const current = appState.rows[bsRowIndex].awardText || '';
-    const others = current.split(',').map(a => a.trim())
+    const others  = current.split(',').map(a => a.trim())
       .filter(a => a && !a.startsWith(bsAward + ':') && a !== bsAward);
 
     if (name1) {
@@ -980,86 +1030,25 @@
       bsBtn.classList.add('has-individual');
       others.push(bsAward + ':' + nameStr);
     } else {
+      // No name — treat as team award fallback
       bsBtn.classList.remove('has-individual');
       others.push(bsAward);
     }
 
     appState.rows[bsRowIndex].awardText = others.join(',');
-    rowLocked[bsRowIndex] = true;
+    // rowLocked already true from toggleAward — scheduleAwardSave will unlock after save
     scheduleAwardSave(bsRowIndex);
   }
 
-  // ── Long press on touch devices ───────────────────────────
-  document.addEventListener('touchstart', function(e) {
-    console.log('touchstart fired, target:', e.target.className);
-    const pill = e.target.closest('.award-pill.selected');
-    console.log('pill found:', pill ? pill.dataset.award : 'none');
-    if (!pill) return;
-    bsLongPressFired = false;
-    bsLongPressTimer = setTimeout(() => {
-      bsLongPressFired = true;
-      console.log('long press fired for:', pill.dataset.award);
-      const rowIndex = parseInt(pill.dataset.rowindex);
-      openBs(rowIndex, pill);
-    }, 600);
-  }, { passive: true });
-
-  document.addEventListener('touchend', function(e) {
-    clearTimeout(bsLongPressTimer);
-    // If long press fired, prevent the subsequent click from toggling
-    if (bsLongPressFired) {
-      bsLongPressFired = false;
-      e.preventDefault && e.preventDefault();
-    }
-  });
-
-  document.addEventListener('touchmove', function() {
-    clearTimeout(bsLongPressTimer);
-    bsLongPressFired = false;
-  }, { passive: true });
-
-  // ── Right-click / two-finger tap on desktop ───────────────
-  document.addEventListener('contextmenu', function(e) {
-    console.log('contextmenu fired, target:', e.target.className);
-    const pill = e.target.closest('.award-pill.selected');
-    console.log('pill found:', pill ? pill.dataset.award : 'none');
-    if (!pill) return;
-    e.preventDefault();
-    const rowIndex = parseInt(pill.dataset.rowindex);
-    openBs(rowIndex, pill);
-  });
-
-  // ── Hover hint: "+ name" link on desktop ─────────────────
-  document.addEventListener('mouseover', function(e) {
-    const pill = e.target.closest('.award-pill.selected');
-    if (!pill) return;
-    if (!pill.querySelector('.pill-name-hint')) {
-      const hint = document.createElement('span');
-      hint.className = 'pill-name-hint';
-      hint.textContent = ' + name';
-      hint.style.cssText = 'font-size:0.7rem;opacity:0.7;text-decoration:underline;cursor:pointer;';
-      hint.addEventListener('click', function(ev) {
-        ev.stopPropagation();
-        const rowIndex = parseInt(pill.dataset.rowindex);
-        openBs(rowIndex, pill);
-      });
-      pill.appendChild(hint);
-    }
-  });
-
-  document.addEventListener('mouseout', function(e) {
-    const pill = e.target.closest('.award-pill.selected');
-    if (!pill) return;
-    const hint = pill.querySelector('.pill-name-hint');
-    if (hint) hint.remove();
-  });
+  // Individual awards open bottom sheet via toggleAward (asterisk detection)
+  // No long press or right-click needed
 
   // ── LIVE REFRESH ─────────────────────────────────────────
   setInterval(() => fetchData(false), 10000);
 </script>
 
 <!-- INDIVIDUAL NAME BOTTOM SHEET -->
-<div class="bottom-sheet-overlay" id="bs-overlay" onclick="closeBs()"></div>
+<div class="bottom-sheet-overlay" id="bs-overlay" onclick="closeBs(true)"></div>
 <div class="bottom-sheet" id="bottom-sheet">
   <div class="bottom-sheet-handle"></div>
   <div class="bottom-sheet-header">
