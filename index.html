@@ -172,6 +172,101 @@
       touch-action: manipulation; user-select: none;
     }
     .award-pill.selected { background: #f1c232; border-color: #c9940a; color: #3d2900; }
+    .award-pill.selected.has-individual {
+      background: #f1c232; border-color: #c9940a; color: #3d2900;
+      padding-right: 8px;
+    }
+    .award-pill.selected.has-individual::after {
+      content: ' 👤';
+      font-size: 0.75rem;
+    }
+    .award-pill.selected:not(.has-individual) {
+      cursor: pointer;
+    }
+    /* Tooltip on hover for desktop */
+    .award-pill.selected::before {
+      content: 'Right-click to add individual name';
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%; transform: translateX(-50%);
+      background: #333; color: #fff;
+      font-size: 0.65rem; font-weight: 400;
+      padding: 4px 8px; border-radius: 4px;
+      white-space: nowrap; pointer-events: none;
+      opacity: 0; transition: opacity 0.2s;
+      z-index: 10;
+    }
+    .award-pill.selected:hover::before { opacity: 1; }
+    @media (hover: none) {
+      .award-pill.selected::before { display: none; }
+    }
+
+    /* ── BOTTOM SHEET ────────────────────────────────────── */
+    .bottom-sheet-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      z-index: 400; opacity: 0; pointer-events: none;
+      transition: opacity 0.25s;
+    }
+    .bottom-sheet-overlay.show {
+      opacity: 1; pointer-events: all;
+    }
+    .bottom-sheet {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: #fff; border-radius: 16px 16px 0 0;
+      padding: 0 0 32px;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+      z-index: 401;
+      max-width: 480px; margin: 0 auto;
+    }
+    .bottom-sheet.show { transform: translateY(0); }
+    .bottom-sheet-handle {
+      width: 36px; height: 4px; background: #ddd; border-radius: 2px;
+      margin: 12px auto 0;
+    }
+    .bottom-sheet-header {
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .bottom-sheet-title {
+      font-size: 1rem; font-weight: 700; color: #1a1a1a;
+    }
+    .bottom-sheet-award {
+      display: inline-block; margin-top: 6px;
+      background: #f1c232; color: #3d2900;
+      padding: 4px 12px; border-radius: 12px;
+      font-size: 0.8rem; font-weight: 600;
+    }
+    .bottom-sheet-body { padding: 16px 20px; }
+    .bs-label {
+      font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1px; color: #999; margin-bottom: 8px;
+    }
+    .bs-name-input {
+      width: 100%; padding: 10px 12px;
+      border: 1.5px solid #ddd; border-radius: 8px;
+      font-size: 0.95rem; color: #333;
+      box-sizing: border-box; margin-bottom: 8px;
+      outline: none;
+    }
+    .bs-name-input:focus { border-color: #f1c232; }
+    .bs-second-name { display: none; }
+    .bs-add-second {
+      font-size: 0.78rem; color: #4a86e8; cursor: pointer;
+      text-decoration: underline; margin-bottom: 16px;
+      display: inline-block;
+    }
+    .bottom-sheet-footer {
+      padding: 0 20px;
+      display: flex; gap: 10px;
+    }
+    .bs-btn {
+      flex: 1; padding: 12px; border-radius: 8px;
+      font-size: 0.9rem; font-weight: 700; border: none;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    .bs-btn-deselect { background: #f5f5f5; color: #d93025; }
+    .bs-btn-confirm  { background: #f1c232; color: #3d2900; }
 
     /* ── SPECIAL ROWS ───────────────────────────────────── */
     .special-row {
@@ -523,11 +618,21 @@
       <div class="award-section">
         <div class="award-label">&#127942; Award(s)</div>
         <div class="award-pills">
-          ${appState.awardOptions.map(opt => `
-            <button class="award-pill${selectedAwards.includes(opt) ? ' selected' : ''}"
-                    onclick="toggleAward(${row.rowIndex}, this)">
+          ${appState.awardOptions.map(opt => {
+            const isSelected = selectedAwards.includes(opt);
+            // Check if this award has an individual name
+            const indKey = opt + ':';
+            const indEntry = row.awardText ? row.awardText.split(',').map(a=>a.trim()).find(a => a.startsWith(indKey)) : null;
+            const hasInd = !!indEntry;
+            return `<button class="award-pill${isSelected ? ' selected' : ''}${hasInd ? ' has-individual' : ''}"
+                    onclick="toggleAward(${row.rowIndex}, this)"
+                    oncontextmenu="openBs(event, ${row.rowIndex}, this)"
+                    data-award="${esc(opt)}"
+                    data-rowindex="${row.rowIndex}"
+                    style="position:relative">
               ${esc(opt)}
-            </button>`).join('')}
+            </button>`;
+          }).join('')}
         </div>
       </div>` : '';
 
@@ -586,17 +691,27 @@
   }
 
   function toggleAward(rowIndex, btn) {
-    // Lock immediately so refresh doesn't overwrite during debounce window
+    // If already selected — on desktop, do nothing (right-click opens sheet)
+    // On touch, long press opens sheet; single tap deselects
+    if (btn.classList.contains('selected')) {
+      // Deselect on single tap (touch users use long press for individual name)
+      bsRowIndex = rowIndex;
+      bsBtn = btn;
+      bsAward = btn.dataset.award;
+      bsDeselect();
+      return;
+    }
+
+    // Not yet selected — select as team award immediately
     rowLocked[rowIndex] = true;
+    btn.classList.add('selected');
+    btn.classList.remove('has-individual');
 
-    btn.classList.toggle('selected');
-
-    const card = btn.closest('.row-card');
-    const computedSelection = Array.from(card.querySelectorAll('.award-pill.selected'))
-      .map(b => b.textContent.trim());
-
-    // Store in comma format to match Google Sheets multi-select
-    appState.rows[rowIndex].awardText = computedSelection.join(',');
+    // Add to awardText as plain award (team)
+    const current = appState.rows[rowIndex].awardText || '';
+    const others = current.split(',').map(a => a.trim()).filter(a => a && !a.startsWith(btn.dataset.award));
+    others.push(btn.dataset.award);
+    appState.rows[rowIndex].awardText = others.join(',');
 
     clearTimeout(awardDebounceTimers[rowIndex]);
     awardDebounceTimers[rowIndex] = setTimeout(async () => {
@@ -803,9 +918,147 @@
     if (e.target === this) closeModal();
   });
 
+  // ── BOTTOM SHEET (individual name) ─────────────────────
+  let bsRowIndex = null;
+  let bsBtn      = null;
+  let bsAward    = null;
+  let bsLongPressTimer = null;
+
+  function openBs(e, rowIndex, btn) {
+    if (e) e.preventDefault();
+    bsRowIndex = rowIndex;
+    bsBtn      = btn;
+    bsAward    = btn.dataset.award;
+
+    // Pre-fill if individual name already set
+    const awardText = appState.rows[rowIndex] ? appState.rows[rowIndex].awardText || '' : '';
+    const parts = awardText.split(',').map(a => a.trim());
+    const existing = parts.find(p => p.startsWith(bsAward + ':'));
+    const names = existing ? existing.slice(bsAward.length + 1).split(';') : [];
+
+    document.getElementById('bs-award-label').textContent = bsAward;
+    document.getElementById('bs-name1').value = names[0] || '';
+    document.getElementById('bs-name2').value = names[1] || '';
+    document.getElementById('bs-second-wrap').style.display = names[1] ? 'block' : 'none';
+    document.getElementById('bs-add-second').style.display = names[1] ? 'none' : 'inline-block';
+
+    document.getElementById('bs-overlay').classList.add('show');
+    document.getElementById('bottom-sheet').classList.add('show');
+    setTimeout(() => document.getElementById('bs-name1').focus(), 350);
+  }
+
+  function closeBs() {
+    document.getElementById('bs-overlay').classList.remove('show');
+    document.getElementById('bottom-sheet').classList.remove('show');
+  }
+
+  function showSecondName() {
+    document.getElementById('bs-second-wrap').style.display = 'block';
+    document.getElementById('bs-add-second').style.display = 'none';
+    document.getElementById('bs-name2').focus();
+  }
+
+  function bsDeselect() {
+    closeBs();
+    if (!bsBtn) return;
+    // Remove this award from selection
+    bsBtn.classList.remove('selected', 'has-individual');
+    const card = bsBtn.closest('.row-card');
+    // Remove award (with or without name) from awardText
+    const current = appState.rows[bsRowIndex].awardText || '';
+    const updated = current.split(',')
+      .map(a => a.trim())
+      .filter(a => !a.startsWith(bsAward) && a !== bsAward)
+      .join(',');
+    appState.rows[bsRowIndex].awardText = updated;
+    saveAwards(bsRowIndex, card);
+  }
+
+  function bsConfirm() {
+    const name1 = document.getElementById('bs-name1').value.trim();
+    const name2 = document.getElementById('bs-name2').value.trim();
+    closeBs();
+    if (!bsBtn) return;
+
+    bsBtn.classList.add('selected');
+
+    if (name1) {
+      // Store as "Award:Name1;Name2" (name2 only if present)
+      const nameStr = name2 ? name1 + ';' + name2 : name1;
+      bsBtn.classList.add('has-individual');
+      // Update awardText — replace existing entry for this award
+      const current = appState.rows[bsRowIndex].awardText || '';
+      const others = current.split(',').map(a => a.trim())
+        .filter(a => a && !a.startsWith(bsAward + ':') && a !== bsAward);
+      others.push(bsAward + ':' + nameStr);
+      appState.rows[bsRowIndex].awardText = others.join(',');
+    } else {
+      // No name entered — treat as team award
+      bsBtn.classList.remove('has-individual');
+      const current = appState.rows[bsRowIndex].awardText || '';
+      const others = current.split(',').map(a => a.trim())
+        .filter(a => a && !a.startsWith(bsAward + ':') && a !== bsAward);
+      others.push(bsAward);
+      appState.rows[bsRowIndex].awardText = others.join(',');
+    }
+
+    const card = bsBtn.closest('.row-card');
+    saveAwards(bsRowIndex, card);
+  }
+
+  function saveAwards(rowIndex, card) {
+    rowLocked[rowIndex] = true;
+    clearTimeout(awardDebounceTimers[rowIndex]);
+    awardDebounceTimers[rowIndex] = setTimeout(async () => {
+      await dispatchSave(rowIndex, { awardText: appState.rows[rowIndex].awardText });
+      rowLocked[rowIndex] = false;
+      delete awardDebounceTimers[rowIndex];
+    }, 500);
+  }
+
+  // Long press detection for touch devices
+  document.addEventListener('touchstart', function(e) {
+    const pill = e.target.closest('.award-pill.selected');
+    if (!pill) return;
+    bsLongPressTimer = setTimeout(() => {
+      const rowIndex = parseInt(pill.dataset.rowindex);
+      openBs(null, rowIndex, pill);
+    }, 500);
+  }, { passive: true });
+
+  document.addEventListener('touchend', function() {
+    clearTimeout(bsLongPressTimer);
+  }, { passive: true });
+
+  document.addEventListener('touchmove', function() {
+    clearTimeout(bsLongPressTimer);
+  }, { passive: true });
+
   // ── LIVE REFRESH ─────────────────────────────────────────
   setInterval(() => fetchData(false), 10000);
 </script>
+
+<!-- INDIVIDUAL NAME BOTTOM SHEET -->
+<div class="bottom-sheet-overlay" id="bs-overlay" onclick="closeBs()"></div>
+<div class="bottom-sheet" id="bottom-sheet">
+  <div class="bottom-sheet-handle"></div>
+  <div class="bottom-sheet-header">
+    <div class="bottom-sheet-title">Individual Award</div>
+    <span class="bottom-sheet-award" id="bs-award-label"></span>
+  </div>
+  <div class="bottom-sheet-body">
+    <div class="bs-label">Recipient name</div>
+    <input type="text" class="bs-name-input" id="bs-name1" placeholder="Enter name...">
+    <div class="bs-second-name" id="bs-second-wrap">
+      <input type="text" class="bs-name-input" id="bs-name2" placeholder="Second recipient (rare)...">
+    </div>
+    <span class="bs-add-second" id="bs-add-second" onclick="showSecondName()">+ Add second recipient</span>
+  </div>
+  <div class="bottom-sheet-footer">
+    <button class="bs-btn bs-btn-deselect" onclick="bsDeselect()">Deselect Award</button>
+    <button class="bs-btn bs-btn-confirm" onclick="bsConfirm()">Confirm</button>
+  </div>
+</div>
 
 <!-- AWARDS MODAL -->
 <div class="modal-overlay hidden" id="awards-modal">
