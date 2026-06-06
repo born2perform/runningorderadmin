@@ -662,10 +662,12 @@ async function fetchData(forceFullRender = false) {
         <div class="award-label">&#127942; Award(s)</div>
         <div class="award-pills">
           ${appState.awardOptions.map(opt => {
-            // Detect individual award (asterisk prefix), strip for display
-            const isIndividual = opt.startsWith('*');
-            const displayName  = isIndividual ? opt.slice(1).trim() : opt;
+// Detect individual award using our helper list, strip for display
+            const displayName  = opt.startsWith('*') ? opt.slice(1).trim() : opt;
             const awardKey     = displayName; // key used in awardText storage
+
+            // Check our helper list to see if this name requires an individual performer name
+            const isIndividual = appState.individualAwards && appState.individualAwards.includes(displayName);
 
             // Check selected state and individual name
             const isSelected = selectedAwards.some(a => a === awardKey || a.startsWith(awardKey + ':'));
