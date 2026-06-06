@@ -616,7 +616,7 @@
 
     const awardHtml = appState.awardOptions.length > 0 ? `
       <div class="award-section">
-        <div class="award-label">&#127942; Award(s)</div>
+        <div class="award-label">&#127942; Award (tap to select, tap again to deselect)</div>
         <div class="award-pills">
           ${appState.awardOptions.map(opt => {
             const isSelected = selectedAwards.includes(opt);
@@ -991,11 +991,14 @@
 
   // ── Long press on touch devices ───────────────────────────
   document.addEventListener('touchstart', function(e) {
+    console.log('touchstart fired, target:', e.target.className);
     const pill = e.target.closest('.award-pill.selected');
+    console.log('pill found:', pill ? pill.dataset.award : 'none');
     if (!pill) return;
     bsLongPressFired = false;
     bsLongPressTimer = setTimeout(() => {
       bsLongPressFired = true;
+      console.log('long press fired for:', pill.dataset.award);
       const rowIndex = parseInt(pill.dataset.rowindex);
       openBs(rowIndex, pill);
     }, 600);
@@ -1017,7 +1020,9 @@
 
   // ── Right-click / two-finger tap on desktop ───────────────
   document.addEventListener('contextmenu', function(e) {
+    console.log('contextmenu fired, target:', e.target.className);
     const pill = e.target.closest('.award-pill.selected');
+    console.log('pill found:', pill ? pill.dataset.award : 'none');
     if (!pill) return;
     e.preventDefault();
     const rowIndex = parseInt(pill.dataset.rowindex);
