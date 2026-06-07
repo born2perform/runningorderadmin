@@ -654,15 +654,12 @@
         <div class="award-label">&#127942; Award(s)</div>
         <div class="award-pills">
           ${appState.awardOptions.map(opt => {
-            // Detect individual award (asterisk prefix), strip for display
-            const isIndividual = opt.startsWith('*');
-            const displayName  = isIndividual ? opt.slice(1).trim() : opt;
-            const awardKey     = displayName; // key used in awardText storage
+            // awardOptions already normalized (no asterisks) — use individualAwards Set
+            const isIndividual = appState.individualAwards && appState.individualAwards.has(opt);
 
-            // Check selected state and individual name
-            const isSelected = selectedAwards.some(a => a === awardKey || a.startsWith(awardKey + ':'));
+            const isSelected = selectedAwards.some(a => a === opt || a.startsWith(opt + ':'));
             const indEntry   = row.awardText ? row.awardText.split(',').map(a => a.trim())
-                                 .find(a => a.startsWith(awardKey + ':')) : null;
+                                 .find(a => a.startsWith(opt + ':')) : null;
             const hasInd     = !!indEntry;
 
             return `<button class="award-pill${isSelected ? ' selected' : ''}${hasInd ? ' has-individual' : ''}"
