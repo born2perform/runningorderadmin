@@ -526,13 +526,10 @@
       // Normalize award options — strip asterisk for storage/matching,
       // track which are individual in a separate Set
       const rawOptions = data.awardOptions || [];
-      console.log('Raw award options from GAS:', rawOptions);
       appState.awardOptions    = rawOptions.map(o => o.startsWith('*') ? o.slice(1).trim() : o.trim());
       appState.individualAwards = new Set(
         rawOptions.filter(o => o.startsWith('*')).map(o => o.slice(1).trim())
       );
-      console.log('Normalized awardOptions:', appState.awardOptions);
-      console.log('individualAwards Set:', [...appState.individualAwards]);
       // Strip emojis and split comp name into city and date for styled header
       // Expected format: "⭐ Coventry - 14 Jun 2026" or "Coventry — 14 Jun 2026"
       const cleanComp = appState.compName.replace(/[^\u0000-\u007E\u00A0-\u024F\s]/g, '').trim();
@@ -742,8 +739,6 @@
     const award      = btn.dataset.award;
     const isIndiv    = appState.individualAwards && appState.individualAwards.has(award);
     const isSelected = btn.classList.contains('selected');
-    console.log('toggleAward called:', award, '| isIndiv:', isIndiv, '| isSelected:', isSelected);
-    console.log('individualAwards Set contents:', appState.individualAwards ? [...appState.individualAwards] : 'NOT SET');
 
     if (isIndiv) {
       // Individual award — always open bottom sheet
@@ -1052,6 +1047,19 @@
 
     appState.rows[bsRowIndex].awardText = others.join(',');
     // rowLocked already true from toggleAward — scheduleAwardSave will unlock after save
+    scheduleAwardSave(bsRowIndex);
+  }
+
+  function bsDeselect() {
+    if (!bsBtn || bsRowIndex === null) { closeBs(true); return; }
+    closeBs(false); // don't unlock yet — scheduleAwardSave handles it
+
+    bsBtn.classList.remove('selected', 'has-individual');
+    const current = appState.rows[bsRowIndex].awardText || '';
+    const updated = current.split(',').map(a => a.trim())
+      .filter(a => a && !a.startsWith(bsAward + ':') && a !== bsAward)
+      .join(',');
+    appState.rows[bsRowIndex].awardText = updated;
     scheduleAwardSave(bsRowIndex);
   }
 
