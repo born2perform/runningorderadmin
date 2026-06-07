@@ -183,23 +183,7 @@
     .award-pill.selected:not(.has-individual) {
       cursor: pointer;
     }
-    /* Tooltip on hover for desktop */
-    .award-pill.selected::before {
-      content: 'Right-click to add individual name';
-      position: absolute;
-      bottom: calc(100% + 6px);
-      left: 50%; transform: translateX(-50%);
-      background: #333; color: #fff;
-      font-size: 0.65rem; font-weight: 400;
-      padding: 4px 8px; border-radius: 4px;
-      white-space: nowrap; pointer-events: none;
-      opacity: 0; transition: opacity 0.2s;
-      z-index: 10;
-    }
-    .award-pill.selected:hover::before { opacity: 1; }
-    @media (hover: none) {
-      .award-pill.selected::before { display: none; }
-    }
+    /* Tooltip removed — individual awards handled via bottom sheet */
 
     /* ── BOTTOM SHEET ────────────────────────────────────── */
     .bottom-sheet-overlay {
@@ -794,7 +778,10 @@
     clearTimeout(awardDebounceTimers[rowIndex]);
     awardDebounceTimers[rowIndex] = setTimeout(async () => {
       await dispatchSave(rowIndex, { awardText: appState.rows[rowIndex].awardText });
-      rowLocked[rowIndex] = false;
+      // Only release lock if no new debounce has been scheduled since
+      if (!awardDebounceTimers[rowIndex]) {
+        rowLocked[rowIndex] = false;
+      }
       delete awardDebounceTimers[rowIndex];
     }, 500);
   }
