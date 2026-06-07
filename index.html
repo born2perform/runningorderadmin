@@ -568,7 +568,6 @@
             networkRow.awardText = awards.map(function(a) {
               return indMap[a] ? a + ':' + indMap[a] : a;
             }).join(',');
-            console.log('Row', rIndex, 'merged awardText:', networkRow.awardText, '| indMap:', JSON.stringify(indMap));
           }
           appState.rows[rIndex] = networkRow;
         }
@@ -794,7 +793,6 @@
   function scheduleAwardSave(rowIndex) {
     clearTimeout(awardDebounceTimers[rowIndex]);
     awardDebounceTimers[rowIndex] = setTimeout(async () => {
-      console.log('Saving awardText for row', rowIndex, ':', appState.rows[rowIndex].awardText);
       await dispatchSave(rowIndex, { awardText: appState.rows[rowIndex].awardText });
       rowLocked[rowIndex] = false;
       delete awardDebounceTimers[rowIndex];
