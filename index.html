@@ -551,6 +551,24 @@
 
         // Only update state if no save is currently in flight for this row
         if (!rowLocked[rIndex]) {
+          // Merge col F (clean awards) and col G (individual recipients)
+          // back into combined awardText format used internally by the app
+          if (networkRow.rowType === 'standard' && networkRow.awardText) {
+            const awards = networkRow.awardText.split(',').map(a => a.trim()).filter(Boolean);
+            const indMap = {};
+            if (networkRow.individuals) {
+              networkRow.individuals.split(',').forEach(function(entry) {
+                const ci = entry.indexOf(':');
+                if (ci !== -1) {
+                  indMap[entry.substring(0, ci).trim()] = entry.substring(ci + 1).trim();
+                }
+              });
+            }
+            // Rebuild combined awardText: "Award" or "Award:Name"
+            networkRow.awardText = awards.map(function(a) {
+              return indMap[a] ? a + ':' + indMap[a] : a;
+            }).join(',');
+          }
           appState.rows[rIndex] = networkRow;
         }
       });
