@@ -510,29 +510,21 @@
   }, 18);
 
   // ── FETCH & RECONCILE ────────────────────────────────────
-async function fetchData(forceFullRender = false) {
+  async function fetchData(forceFullRender = false) {
     try {
       const res  = await fetch(SCRIPT_URL);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
 
-      appState.compName     = data.compName || '';
-      
-      // ─── REPLACE THE OLD appState.awardOptions LINE WITH THIS ───
-      if (data.awardOptions) {
-        // 1. Strip the asterisks so clicking matches up with your template strings
-        appState.awardOptions = data.awardOptions.map(option => {
-          return option.startsWith('*') ? option.substring(1).trim() : option.trim();
-        });
+      appState.compName = data.compName || '';
 
-        // 2. Remember which clean strings originally had an asterisk
-        appState.individualAwards = data.awardOptions
-          .filter(option => option.startsWith('*'))
-          .map(option => option.substring(1).trim());
-      } else {
-        appState.awardOptions = [];
-        appState.individualAwards = [];
-      }
+      // Normalize award options — strip asterisk for storage/matching,
+      // track which are individual in a separate Set
+      const rawOptions = data.awardOptions || [];
+      appState.awardOptions    = rawOptions.map(o => o.startsWith('*') ? o.slice(1).trim() : o.trim());
+      appState.individualAwards = new Set(
+        rawOptions.filter(o => o.startsWith('*')).map(o => o.slice(1).trim())
+      );
       // Strip emojis and split comp name into city and date for styled header
       // Expected format: "⭐ Coventry - 14 Jun 2026" or "Coventry — 14 Jun 2026"
       const cleanComp = appState.compName.replace(/[^\u0000-\u007E\u00A0-\u024F\s]/g, '').trim();
@@ -662,12 +654,10 @@ async function fetchData(forceFullRender = false) {
         <div class="award-label">&#127942; Award(s)</div>
         <div class="award-pills">
           ${appState.awardOptions.map(opt => {
-// Detect individual award using our helper list, strip for display
-            const displayName  = opt.startsWith('*') ? opt.slice(1).trim() : opt;
+            // Detect individual award (asterisk prefix), strip for display
+            const isIndividual = opt.startsWith('*');
+            const displayName  = isIndividual ? opt.slice(1).trim() : opt;
             const awardKey     = displayName; // key used in awardText storage
-
-            // Check our helper list to see if this name requires an individual performer name
-            const isIndividual = appState.individualAwards && appState.individualAwards.includes(displayName);
 
             // Check selected state and individual name
             const isSelected = selectedAwards.some(a => a === awardKey || a.startsWith(awardKey + ':'));
@@ -677,11 +667,10 @@ async function fetchData(forceFullRender = false) {
 
             return `<button class="award-pill${isSelected ? ' selected' : ''}${hasInd ? ' has-individual' : ''}"
                     onclick="toggleAward(${row.rowIndex}, this)"
-                    data-award="${esc(displayName)}"
-                    data-individual="${isIndividual}"
+                    data-award="${esc(opt)}"
                     data-rowindex="${row.rowIndex}"
                     style="position:relative">
-              ${esc(displayName)}
+              ${esc(opt)}
             </button>`;
           }).join('')}
         </div>
@@ -744,13 +733,9 @@ async function fetchData(forceFullRender = false) {
     rowLocked[rowIndex] = false;
   }
 
-function toggleAward(rowIndex, btn) {
-    const rawAward   = btn.dataset.award;
-    // Clean up any stray symbols or spaces just in case
-    const award      = rawAward ? rawAward.replace('*', '').trim() : '';
-    
-    // Check against our brand new helper list to see if this is an individual award!
-    const isIndiv    = appState.individualAwards && appState.individualAwards.includes(award);
+  function toggleAward(rowIndex, btn) {
+    const award      = btn.dataset.award;
+    const isIndiv    = appState.individualAwards && appState.individualAwards.has(award);
     const isSelected = btn.classList.contains('selected');
 
     if (isIndiv) {
