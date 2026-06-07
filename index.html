@@ -472,6 +472,11 @@
   const rowLocked   = {};  // true while save in flight
   const awardDebounceTimers = {};
 
+  // Bottom sheet state — declared here to avoid hoisting issues
+  let bsRowIndex = null;
+  let bsBtn      = null;
+  let bsAward    = null;
+
   // ── LOADING SCREEN ───────────────────────────────────────
   const hypeWords = [
     'SYNCING THE SCHEDULE...',
@@ -521,10 +526,13 @@
       // Normalize award options — strip asterisk for storage/matching,
       // track which are individual in a separate Set
       const rawOptions = data.awardOptions || [];
+      console.log('Raw award options from GAS:', rawOptions);
       appState.awardOptions    = rawOptions.map(o => o.startsWith('*') ? o.slice(1).trim() : o.trim());
       appState.individualAwards = new Set(
         rawOptions.filter(o => o.startsWith('*')).map(o => o.slice(1).trim())
       );
+      console.log('Normalized awardOptions:', appState.awardOptions);
+      console.log('individualAwards Set:', [...appState.individualAwards]);
       // Strip emojis and split comp name into city and date for styled header
       // Expected format: "⭐ Coventry - 14 Jun 2026" or "Coventry — 14 Jun 2026"
       const cleanComp = appState.compName.replace(/[^\u0000-\u007E\u00A0-\u024F\s]/g, '').trim();
@@ -734,6 +742,8 @@
     const award      = btn.dataset.award;
     const isIndiv    = appState.individualAwards && appState.individualAwards.has(award);
     const isSelected = btn.classList.contains('selected');
+    console.log('toggleAward called:', award, '| isIndiv:', isIndiv, '| isSelected:', isSelected);
+    console.log('individualAwards Set contents:', appState.individualAwards ? [...appState.individualAwards] : 'NOT SET');
 
     if (isIndiv) {
       // Individual award — always open bottom sheet
@@ -966,15 +976,17 @@
     if (btn) { btn.disabled = false; btn.classList.remove('generating'); btn.innerHTML = '🏆 Export'; }
   };
 
-  // Close modal on overlay tap
-  document.getElementById('awards-modal').addEventListener('click', function(e) {
-    if (e.target === this) closeModal();
+  // Close modal on overlay tap — wrapped in DOMContentLoaded to ensure element exists
+  document.addEventListener('DOMContentLoaded', function() {
+    const awardsModal = document.getElementById('awards-modal');
+    if (awardsModal) {
+      awardsModal.addEventListener('click', function(e) {
+        if (e.target === this) closeModal();
+      });
+    }
   });
 
   // ── BOTTOM SHEET (individual name) ─────────────────────
-  let bsRowIndex = null;
-  let bsBtn      = null;
-  let bsAward    = null;
 
   function openBs(rowIndex, btn) {
     bsRowIndex = rowIndex;
