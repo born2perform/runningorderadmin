@@ -568,6 +568,7 @@
             networkRow.awardText = awards.map(function(a) {
               return indMap[a] ? a + ':' + indMap[a] : a;
             }).join(',');
+            console.log('Row', rIndex, 'merged awardText:', networkRow.awardText, '| indMap:', JSON.stringify(indMap));
           }
           appState.rows[rIndex] = networkRow;
         }
