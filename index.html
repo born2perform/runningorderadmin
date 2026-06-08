@@ -786,7 +786,20 @@
       const element = document.querySelector(`[data-row-index="${rIndex}"]`);
       if (!element) return;
 
-      const isDone = row.done;
+      const isDone      = row.done;
+      const isWithdrawn = row.withdrawn || false;
+
+      // If withdrawn state or done state changed significantly, rebuild the card
+      const wasWithdrawn = element.dataset.withdrawn === 'true';
+      const wasDone      = element.classList.contains('done');
+
+      if (isWithdrawn !== wasWithdrawn || (isDone !== wasDone && row.rowType === 'standard')) {
+        const container = document.getElementById('running-order');
+        const newCard = buildStandardCard(row);
+        container.replaceChild(newCard, element);
+        return; // card rebuilt, skip remaining patches
+      }
+
       element.classList.toggle('done', isDone);
 
       if (row.rowType === 'standard') {
@@ -798,10 +811,7 @@
         // Update withdrawn button visibility
         const wWrap = element.querySelector('.withdrawn-wrap');
         if (wWrap) {
-          // If withdrawn, always show (to allow unwithdraw)
-          // If done but not withdrawn, hide
-          // If not done, show
-          if (row.withdrawn) {
+          if (isWithdrawn) {
             wWrap.style.display = '';
           } else {
             wWrap.style.display = isDone ? 'none' : '';
@@ -839,8 +849,9 @@
   // ── DOM BUILDERS ─────────────────────────────────────────
   function buildStandardCard(row) {
     const card = document.createElement('div');
-    card.className = 'row-card' + (row.done ? ' done' : '');
-    card.dataset.rowIndex = row.rowIndex;
+    card.className = 'row-card' + (row.done ? ' done' : '') + (row.withdrawn ? ' withdrawn' : '');
+    card.dataset.rowIndex  = row.rowIndex;
+    card.dataset.withdrawn = row.withdrawn ? 'true' : 'false';
 
     // Split on comma — matches Google Sheets multi-select format
     // Parse selected awards — strip :Name suffix for comparison
@@ -933,10 +944,14 @@
     if (!confirm('Mark this routine as withdrawn? It will be ticked as done and display as Withdrawn. You can undo this.')) return;
     rowLocked[rowIndex] = true;
 
-    // Update appState
-    appState.rows[rowIndex].withdrawn = true;
-    appState.rows[rowIndex].done      = true;
-    appState.rows[rowIndex].awardText = '';
+    // Update appState — store originals, set display to Withdrawn
+    appState.rows[rowIndex]._origSchool = appState.rows[rowIndex].school;
+    appState.rows[rowIndex]._origTeam   = appState.rows[rowIndex].team;
+    appState.rows[rowIndex].withdrawn   = true;
+    appState.rows[rowIndex].done        = true;
+    appState.rows[rowIndex].awardText   = '';
+    appState.rows[rowIndex].school      = 'Withdrawn';
+    appState.rows[rowIndex].team        = 'Withdrawn';
 
     // Rebuild the card to show withdrawn state
     const container = document.getElementById('running-order');
