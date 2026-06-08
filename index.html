@@ -797,7 +797,16 @@
         }
         // Update withdrawn button visibility
         const wWrap = element.querySelector('.withdrawn-wrap');
-        if (wWrap) wWrap.style.display = isDone ? 'none' : '';
+        if (wWrap) {
+          // If withdrawn, always show (to allow unwithdraw)
+          // If done but not withdrawn, hide
+          // If not done, show
+          if (row.withdrawn) {
+            wWrap.style.display = '';
+          } else {
+            wWrap.style.display = isDone ? 'none' : '';
+          }
+        }
         // Parse selected awards stripping :Name suffix
         const selectedAwardKeys = row.awardText
           ? row.awardText.split(',').map(a => {
@@ -866,14 +875,19 @@
         </div>
       </div>` : '';
 
-    const withdrawnBtn = row.school !== 'Withdrawn'
-      ? `<div class="withdrawn-wrap" style="padding:0 14px 10px;${row.done ? 'display:none;' : ''}">
-           <button onclick="markWithdrawn(${row.rowIndex})"
+    const withdrawnBtn = row.withdrawn
+      ? `<div class="withdrawn-wrap" style="padding:0 14px 10px;">
+           <button onclick="unmarkWithdrawn(${row.rowIndex})"
+             style="background:none;border:none;font-size:0.72rem;color:#e08080;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline;">
+             Unmark withdrawn
+           </button>
+         </div>`
+      : `<div class="withdrawn-wrap" style="padding:0 14px 10px;${row.done ? 'display:none;' : ''}">
+           <button onclick="confirmMarkWithdrawn(${row.rowIndex})"
              style="background:none;border:none;font-size:0.72rem;color:#bbb;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline;">
              Mark as withdrawn
            </button>
-         </div>`
-      : '';
+         </div>`;
 
     card.innerHTML = `
       <div class="card-main">
@@ -915,21 +929,65 @@
   }
 
   // ── INTERACTIONS ─────────────────────────────────────────
-  async function markWithdrawn(rowIndex) {
-    if (!confirm('Mark this routine as withdrawn? This will tick it as done and cannot be undone from the app.')) return;
+  async function confirmMarkWithdrawn(rowIndex) {
+    if (!confirm('Mark this routine as withdrawn? It will be ticked as done and display as Withdrawn. You can undo this.')) return;
     rowLocked[rowIndex] = true;
-    appState.rows[rowIndex].done = true;
-    // Re-render the card
-    const card = document.querySelector('[data-row-index="' + rowIndex + '"]');
-    if (card) {
-      card.classList.add('done');
-      const btn = card.querySelector('.done-btn');
-      if (btn) { btn.classList.add('active'); btn.innerHTML = '&#10003;'; }
-      const wBtn = card.querySelector('button[onclick*="markWithdrawn"]');
-      if (wBtn) wBtn.parentNode.remove();
+
+    // Update appState
+    appState.rows[rowIndex].withdrawn = true;
+    appState.rows[rowIndex].done      = true;
+    appState.rows[rowIndex].awardText = '';
+
+    // Rebuild the card to show withdrawn state
+    const container = document.getElementById('running-order');
+    const oldCard   = container.querySelector('[data-row-index="' + rowIndex + '"]');
+    if (oldCard) {
+      const newCard = buildStandardCard(appState.rows[rowIndex]);
+      container.replaceChild(newCard, oldCard);
     }
-    await dispatchSave(rowIndex, { done: true });
-    rowLocked[rowIndex] = false;
+
+    try {
+      const res = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'markWithdrawn', rowIndex: rowIndex }),
+        headers: { 'Content-Type': 'text/plain' }
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      showToast('Marked as withdrawn ✓', false);
+    } catch (err) {
+      console.error('Withdrawn failed:', err);
+      showToast('Failed ✗', true);
+    } finally {
+      rowLocked[rowIndex] = false;
+    }
+  }
+
+  async function unmarkWithdrawn(rowIndex) {
+    if (!confirm('Unmark this routine as withdrawn? It will be restored to its original state.')) return;
+    rowLocked[rowIndex] = true;
+
+    // Update appState — restore original names from sheet on next fetch
+    appState.rows[rowIndex].withdrawn = false;
+    appState.rows[rowIndex].done      = false;
+
+    try {
+      const res = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'unmarkWithdrawn', rowIndex: rowIndex }),
+        headers: { 'Content-Type': 'text/plain' }
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      showToast('Withdrawal reversed ✓', false);
+      // Force a fresh fetch to get original names back from sheet
+      rowLocked[rowIndex] = false;
+      await fetchData(false);
+    } catch (err) {
+      console.error('Unwithdraw failed:', err);
+      showToast('Failed ✗', true);
+      rowLocked[rowIndex] = false;
+    }
   }
 
   async function toggleDone(rowIndex, btn) {
@@ -1095,8 +1153,7 @@
           ⚠️ <strong>${undone.length} routine${undone.length > 1 ? 's have' : ' has'} not been marked as done.</strong><br>
           All routines must be ticked before generating the awards summary.
         </div>
-        Please go back and mark all routines as complete, then try again.<br><br>
-        <small style="color:#999;">Or use the nuclear option below — only if you are certain the show is finished and all remaining unticked routines did not perform.</small>
+        Please go back and mark all routines as complete, then try again, or use the button below if the show is finished.
       `;
       document.getElementById('modal-footer').innerHTML = `
         <button class="modal-btn modal-btn-cancel" onclick="closeModal()">Go back</button>
@@ -1247,6 +1304,8 @@
     bsRowIndex = rowIndex;
     bsBtn      = btn;
     bsAward    = btn.dataset.award;
+    // Save scroll position before keyboard appears and displaces page
+    bsScrollY = window.scrollY;
     // Row stays locked until confirmed/deselected/cancelled
 
     // Pre-fill if individual name already set
@@ -1269,6 +1328,8 @@
   function closeBs(cancelled) {
     document.getElementById('bs-overlay').classList.remove('show');
     document.getElementById('bottom-sheet').classList.remove('show');
+    // Restore scroll position after keyboard dismisses
+    setTimeout(function() { window.scrollTo(0, bsScrollY); }, 50);
     // If cancelled (overlay tap or explicit cancel), unlock row without saving
     if (cancelled && bsRowIndex !== null) {
       rowLocked[bsRowIndex] = false;
