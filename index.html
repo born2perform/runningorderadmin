@@ -280,6 +280,181 @@
 
     .special-row.done { opacity: 0.45; filter: grayscale(60%); }
 
+    /* ── ANNOUNCEMENT BUTTON ────────────────────────────── */
+    .ann-fab {
+      position: fixed; bottom: 24px; right: 16px; z-index: 150;
+      width: 52px; height: 52px; border-radius: 50%;
+      background: #1a1a1a; border: none;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem; cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      transition: transform 0.15s;
+    }
+    .ann-fab:active { transform: scale(0.93); }
+
+    .ann-fab-badge {
+      position: absolute; top: 6px; right: 6px;
+      width: 10px; height: 10px;
+      background: #d93025; border-radius: 50%;
+      border: 2px solid #f8f9fa;
+      animation: blink 1.5s infinite;
+      display: none;
+    }
+    .ann-fab-badge.visible { display: block; }
+
+    /* ── ANNOUNCEMENT BOTTOM SHEET ───────────────────────── */
+    .ann-sheet-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      z-index: 400; opacity: 0; pointer-events: none;
+      transition: opacity 0.25s;
+    }
+    .ann-sheet-overlay.show { opacity: 1; pointer-events: all; }
+
+    .ann-sheet {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: #fff; border-radius: 16px 16px 0 0;
+      padding: 0 0 32px;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+      z-index: 401; max-width: 480px; margin: 0 auto;
+    }
+    .ann-sheet.show { transform: translateY(0); }
+
+    .ann-sheet-handle {
+      width: 36px; height: 4px; background: #ddd;
+      border-radius: 2px; margin: 12px auto 0;
+    }
+
+    .ann-sheet-header {
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    .ann-sheet-title {
+      font-size: 1rem; font-weight: 700; color: #1a1a1a;
+    }
+
+    /* Active announcement indicator inside sheet */
+    .ann-active-indicator {
+      margin: 12px 20px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      display: none;
+    }
+    .ann-active-indicator.visible { display: block; }
+    .ann-active-indicator.fyi     { background: #fffbeb; border: 1px solid #f1c232; color: #78530a; }
+    .ann-active-indicator.headsup { background: #fff7ed; border: 1px solid #fb923c; color: #9a3412; }
+    .ann-active-indicator.stop    { background: #fff1f2; border: 1px solid #f43f5e; color: #9f1239; }
+
+    .ann-active-label {
+      font-size: 0.65rem; font-weight: 800; letter-spacing: 1.5px;
+      text-transform: uppercase; margin-bottom: 4px;
+    }
+
+    .ann-active-text { font-weight: 500; line-height: 1.4; }
+
+    .ann-clear-btn {
+      display: none; width: calc(100% - 40px); margin: 0 20px 4px;
+      padding: 10px; border-radius: 8px;
+      background: #f5f5f5; color: #d93025;
+      border: none; font-size: 0.85rem; font-weight: 700;
+      cursor: pointer; font-family: inherit;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .ann-clear-btn.visible { display: block; }
+
+    /* Type selector */
+    .ann-type-grid {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px; padding: 12px 20px;
+    }
+
+    .ann-type-btn {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 4px; padding: 10px 6px; border-radius: 10px;
+      border: 1.5px solid #e8e8e8; background: #fff;
+      cursor: pointer; transition: all 0.15s;
+      -webkit-tap-highlight-color: transparent;
+      font-family: inherit;
+    }
+
+    .ann-type-btn .type-icon  { font-size: 1.3rem; }
+    .ann-type-btn .type-name  { font-size: 0.72rem; font-weight: 700; color: #333; }
+    .ann-type-btn .type-desc  { font-size: 0.6rem; color: #888; text-align: center; line-height: 1.3; }
+
+    .ann-type-btn.selected.fyi     { background: #fffbeb; border-color: #f1c232; }
+    .ann-type-btn.selected.headsup { background: #fff7ed; border-color: #fb923c; }
+    .ann-type-btn.selected.stop    { background: #fff1f2; border-color: #f43f5e; }
+
+    /* Quick presets */
+    .ann-presets {
+      padding: 0 20px 8px;
+      display: flex; flex-wrap: wrap; gap: 6px;
+    }
+
+    .ann-preset-btn {
+      padding: 5px 12px; border-radius: 16px;
+      border: 1px solid #e8e8e8; background: #f8f9fa;
+      font-size: 0.75rem; font-weight: 500; color: #555;
+      cursor: pointer; font-family: inherit;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .ann-preset-btn:active { background: #eee; }
+
+    /* Text area */
+    .ann-textarea-wrap { padding: 0 20px 8px; }
+
+    .ann-textarea {
+      width: 100%; padding: 10px 12px;
+      border: 1.5px solid #e8e8e8; border-radius: 8px;
+      font-family: inherit; font-size: 0.9rem; color: #1a1a1a;
+      resize: none; min-height: 80px; outline: none;
+      transition: border-color 0.2s;
+    }
+    .ann-textarea:focus { border-color: #f1c232; }
+
+    .ann-char-count {
+      font-size: 0.7rem; color: #aaa; text-align: right;
+      padding: 0 20px 4px;
+    }
+    .ann-char-count.warn { color: #d93025; }
+
+    /* Dismissible option (STOP only) */
+    .ann-dismissible-row {
+      display: none; align-items: center; gap: 8px;
+      padding: 0 20px 12px; font-size: 0.82rem; color: #555;
+    }
+    .ann-dismissible-row.visible { display: flex; }
+    .ann-dismissible-row input { accent-color: #f43f5e; width: 16px; height: 16px; }
+
+    /* Expiry selector */
+    .ann-expiry-row {
+      padding: 0 20px 12px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .ann-expiry-label { font-size: 0.78rem; color: #666; white-space: nowrap; }
+    .ann-expiry-select {
+      flex: 1; padding: 7px 10px; border: 1.5px solid #e8e8e8;
+      border-radius: 8px; font-family: inherit; font-size: 0.82rem;
+      color: #333; background: #fff; outline: none;
+    }
+
+    /* Post button */
+    .ann-post-btn {
+      width: calc(100% - 40px); margin: 4px 20px 0;
+      padding: 13px; border-radius: 10px;
+      background: #f1c232; color: #3d2900;
+      border: none; font-size: 0.95rem; font-weight: 800;
+      cursor: pointer; font-family: inherit;
+      -webkit-tap-highlight-color: transparent;
+      letter-spacing: 0.5px;
+    }
+    .ann-post-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
     /* ── TOAST ──────────────────────────────────────────── */
     .saving-toast {
       position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
@@ -506,6 +681,14 @@
       if (data.error) throw new Error(data.error);
 
       appState.compName = data.compName || '';
+
+      // Sync active announcement state for badge indicator
+      if (data.announcement) {
+        activeAnnouncement = data.announcement;
+      } else {
+        activeAnnouncement = null;
+      }
+      if (typeof updateAnnSheetState === 'function') updateAnnSheetState();
 
       // Normalize award options — strip asterisk for storage/matching,
       // track which are individual in a separate Set
@@ -1071,6 +1254,136 @@
   // Individual awards open bottom sheet via toggleAward (asterisk detection)
   // No long press or right-click needed
 
+  // ── ANNOUNCEMENT ─────────────────────────────────────────
+  let currentAnnType = 'FYI';
+  let activeAnnouncement = null;
+
+  function openAnnSheet() {
+    // Show current active announcement if any
+    updateAnnSheetState();
+    document.getElementById('ann-overlay').classList.add('show');
+    document.getElementById('ann-sheet').classList.add('show');
+  }
+
+  function closeAnnSheet() {
+    document.getElementById('ann-overlay').classList.remove('show');
+    document.getElementById('ann-sheet').classList.remove('show');
+  }
+
+  function updateAnnSheetState() {
+    const indicator = document.getElementById('ann-active-indicator');
+    const clearBtn  = document.getElementById('ann-clear-btn');
+    const activeText = document.getElementById('ann-active-text');
+    const activeLabel = document.getElementById('ann-active-label');
+    const badge = document.getElementById('ann-fab-badge');
+
+    if (activeAnnouncement && activeAnnouncement.text) {
+      const type = (activeAnnouncement.type || 'FYI').toLowerCase();
+      const labels = { fyi: '📢 FYI Active', headsup: '⚠️ Heads Up Active', stop: '🚨 Stop Active' };
+      indicator.className = 'ann-active-indicator visible ' + type;
+      activeLabel.textContent = labels[type] || '📢 Active';
+      activeText.textContent  = activeAnnouncement.text;
+      clearBtn.classList.add('visible');
+      badge.classList.add('visible');
+    } else {
+      indicator.className = 'ann-active-indicator';
+      clearBtn.classList.remove('visible');
+      badge.classList.remove('visible');
+    }
+  }
+
+  function selectAnnType(type, btn) {
+    currentAnnType = type;
+    document.querySelectorAll('.ann-type-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    // Show dismissible option only for STOP
+    const dimRow = document.getElementById('ann-dismissible-row');
+    dimRow.classList.toggle('visible', type === 'STOP');
+  }
+
+  function usePreset(text, type) {
+    document.getElementById('ann-text').value = text;
+    annTextChanged();
+    // Select the matching type button
+    const btn = document.querySelector('.ann-type-btn[data-type="' + type + '"]');
+    if (btn) selectAnnType(type, btn);
+  }
+
+  function annTextChanged() {
+    const len = document.getElementById('ann-text').value.length;
+    const counter = document.getElementById('ann-char-count');
+    counter.textContent = len + ' / 280';
+    counter.className = 'ann-char-count' + (len > 240 ? ' warn' : '');
+    document.getElementById('ann-post-btn').disabled = len === 0;
+  }
+
+  async function postAnnouncement() {
+    const text       = document.getElementById('ann-text').value.trim();
+    const expiry     = parseInt(document.getElementById('ann-expiry').value) || 0;
+    const dismissible = currentAnnType !== 'STOP' || document.getElementById('ann-dismissible').checked;
+
+    if (!text) return;
+
+    document.getElementById('ann-post-btn').disabled = true;
+    document.getElementById('ann-post-btn').textContent = 'Posting...';
+
+    try {
+      const res = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({
+          action:      'postAnnouncement',
+          text:        text,
+          annType:     currentAnnType,
+          expiry:      expiry,
+          dismissible: dismissible
+        }),
+        headers: { 'Content-Type': 'text/plain' }
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      activeAnnouncement = { text, type: currentAnnType, timestamp: data.timestamp, expiry, dismissible };
+      updateAnnSheetState();
+      showToast('Announcement posted ✓', false);
+      closeAnnSheet();
+      document.getElementById('ann-text').value = '';
+      annTextChanged();
+    } catch (err) {
+      console.error('Announcement post failed:', err);
+      showToast('Failed to post ✗', true);
+    } finally {
+      document.getElementById('ann-post-btn').disabled = false;
+      document.getElementById('ann-post-btn').textContent = 'Post Announcement';
+    }
+  }
+
+  async function clearAnnouncement() {
+    try {
+      const res = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'clearAnnouncement' }),
+        headers: { 'Content-Type': 'text/plain' }
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      activeAnnouncement = null;
+      updateAnnSheetState();
+      showToast('Announcement cleared ✓', false);
+      closeAnnSheet();
+    } catch (err) {
+      console.error('Clear failed:', err);
+      showToast('Failed to clear ✗', true);
+    }
+  }
+
+  // Update badge when fetchData brings back announcement state
+  const _origFetchData = fetchData;
+  fetchData = async function(forceFullRender) {
+    await _origFetchData(forceFullRender);
+    // Sync activeAnnouncement from appState if GAS returns it
+  };
+
   // ── LIVE REFRESH ─────────────────────────────────────────
   setInterval(() => fetchData(false), 10000);
 </script>
@@ -1095,6 +1408,89 @@
     <button class="bs-btn bs-btn-deselect" onclick="bsDeselect()">Deselect Award</button>
     <button class="bs-btn bs-btn-confirm" onclick="bsConfirm()">Confirm</button>
   </div>
+</div>
+
+<!-- ANNOUNCEMENT FAB -->
+<button class="ann-fab" id="ann-fab" onclick="openAnnSheet()" aria-label="Post announcement">
+  📣
+  <span class="ann-fab-badge" id="ann-fab-badge"></span>
+</button>
+
+<!-- ANNOUNCEMENT BOTTOM SHEET -->
+<div class="ann-sheet-overlay" id="ann-overlay" onclick="closeAnnSheet()"></div>
+<div class="ann-sheet" id="ann-sheet">
+  <div class="ann-sheet-handle"></div>
+  <div class="ann-sheet-header">
+    <div class="ann-sheet-title">Post Announcement</div>
+  </div>
+
+  <!-- Active announcement indicator -->
+  <div class="ann-active-indicator" id="ann-active-indicator">
+    <div class="ann-active-label" id="ann-active-label"></div>
+    <div class="ann-active-text" id="ann-active-text"></div>
+  </div>
+  <button class="ann-clear-btn" id="ann-clear-btn" onclick="clearAnnouncement()">
+    ✕ Clear current announcement
+  </button>
+
+  <!-- Type selector -->
+  <div class="ann-type-grid">
+    <button class="ann-type-btn fyi selected" data-type="FYI" onclick="selectAnnType('FYI', this)">
+      <span class="type-icon">📢</span>
+      <span class="type-name">FYI</span>
+      <span class="type-desc">General info, not urgent</span>
+    </button>
+    <button class="ann-type-btn headsup" data-type="HEADSUP" onclick="selectAnnType('HEADSUP', this)">
+      <span class="type-icon">⚠️</span>
+      <span class="type-name">Heads Up</span>
+      <span class="type-desc">Parents need to act</span>
+    </button>
+    <button class="ann-type-btn stop" data-type="STOP" onclick="selectAnnType('STOP', this)">
+      <span class="type-icon">🚨</span>
+      <span class="type-name">Stop</span>
+      <span class="type-desc">Show disrupted or suspended</span>
+    </button>
+  </div>
+
+  <!-- Quick presets -->
+  <div class="ann-presets">
+    <button class="ann-preset-btn" onclick="usePreset('Running approx 15 mins ahead ⏩', 'HEADSUP')">⏩ 15 mins ahead</button>
+    <button class="ann-preset-btn" onclick="usePreset('Running approx 15 mins behind ⏪', 'HEADSUP')">⏪ 15 mins behind</button>
+    <button class="ann-preset-btn" onclick="usePreset('Short delay — please bear with us 🙏', 'HEADSUP')">🙏 Short delay</button>
+    <button class="ann-preset-btn" onclick="usePreset('Show temporarily suspended — please await further updates', 'STOP')">🚨 Suspended</button>
+    <button class="ann-preset-btn" onclick="usePreset('Now back on schedule ✅', 'FYI')">✅ Back on schedule</button>
+  </div>
+
+  <!-- Text area -->
+  <div class="ann-textarea-wrap">
+    <textarea class="ann-textarea" id="ann-text" maxlength="280"
+      placeholder="Type your announcement..."
+      oninput="annTextChanged()"
+      autocorrect="on" autocapitalize="sentences" spellcheck="true"></textarea>
+  </div>
+  <div class="ann-char-count" id="ann-char-count">0 / 280</div>
+
+  <!-- Dismissible option (STOP only) -->
+  <div class="ann-dismissible-row" id="ann-dismissible-row">
+    <input type="checkbox" id="ann-dismissible" checked>
+    <label for="ann-dismissible">Allow parents to dismiss this message</label>
+  </div>
+
+  <!-- Expiry -->
+  <div class="ann-expiry-row">
+    <span class="ann-expiry-label">Auto-clear after:</span>
+    <select class="ann-expiry-select" id="ann-expiry">
+      <option value="0">Never (clear manually)</option>
+      <option value="30">30 minutes</option>
+      <option value="60">1 hour</option>
+      <option value="120">2 hours</option>
+      <option value="480">End of day (8 hrs)</option>
+    </select>
+  </div>
+
+  <button class="ann-post-btn" id="ann-post-btn" onclick="postAnnouncement()">
+    Post Announcement
+  </button>
 </div>
 
 <!-- AWARDS MODAL -->
