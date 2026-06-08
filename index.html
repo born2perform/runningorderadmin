@@ -980,11 +980,6 @@
 
   async function unmarkWithdrawn(rowIndex) {
     if (!confirm('Unmark this routine as withdrawn? It will be restored to its original state.')) return;
-    rowLocked[rowIndex] = true;
-
-    // Update appState — restore original names from sheet on next fetch
-    appState.rows[rowIndex].withdrawn = false;
-    appState.rows[rowIndex].done      = false;
 
     try {
       const res = await fetch(SCRIPT_URL, {
@@ -995,9 +990,10 @@
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       showToast('Withdrawal reversed ✓', false);
-      // Force a fresh fetch to get original names back from sheet
+      // Release lock and force full re-fetch so original names come back from sheet
       rowLocked[rowIndex] = false;
-      await fetchData(false);
+      delete appState.rows[rowIndex]; // remove stale state so fetchData rebuilds it fresh
+      await fetchData(true); // force full render
     } catch (err) {
       console.error('Unwithdraw failed:', err);
       showToast('Failed ✗', true);
