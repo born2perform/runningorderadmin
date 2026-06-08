@@ -797,6 +797,9 @@
       const isDone      = row.done;
       const isWithdrawn = row.withdrawn || false;
 
+      // Skip if row is locked (save or withdrawal in flight)
+      if (rowLocked[rIndex]) return;
+
       // If withdrawn state or done state changed significantly, rebuild the card
       const wasWithdrawn = element.dataset.withdrawn === 'true';
       const wasDone      = element.classList.contains('done');
@@ -953,7 +956,7 @@
 
   // ── INTERACTIONS ─────────────────────────────────────────
   async function confirmMarkWithdrawn(rowIndex) {
-    if (!confirm('Mark this routine as withdrawn? It will be ticked as done and display as Withdrawn. You can undo this.')) return;
+    if (!confirm('Mark this routine as withdrawn? It will display as Withdrawn and recede in the list. You can undo this.')) return;
     rowLocked[rowIndex] = true;
 
     // Update appState — store originals, set display to Withdrawn
