@@ -795,6 +795,9 @@
           btn.classList.toggle('active', isDone);
           btn.innerHTML = isDone ? '&#10003;' : '';
         }
+        // Update withdrawn button visibility
+        const wWrap = element.querySelector('.withdrawn-wrap');
+        if (wWrap) wWrap.style.display = isDone ? 'none' : '';
         // Parse selected awards stripping :Name suffix
         const selectedAwardKeys = row.awardText
           ? row.awardText.split(',').map(a => {
@@ -863,8 +866,8 @@
         </div>
       </div>` : '';
 
-    const withdrawnBtn = !row.done && row.school !== 'Withdrawn'
-      ? `<div style="padding:0 14px 10px;">
+    const withdrawnBtn = row.school !== 'Withdrawn'
+      ? `<div class="withdrawn-wrap" style="padding:0 14px 10px;${row.done ? 'display:none;' : ''}">
            <button onclick="markWithdrawn(${row.rowIndex})"
              style="background:none;border:none;font-size:0.72rem;color:#bbb;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline;">
              Mark as withdrawn
@@ -988,9 +991,10 @@
     clearTimeout(awardDebounceTimers[rowIndex]);
     awardDebounceTimers[rowIndex] = setTimeout(async () => {
       await dispatchSave(rowIndex, { awardText: appState.rows[rowIndex].awardText });
-      // Only release lock if no new debounce has been scheduled since
+      // Keep row locked for extra 8 seconds after save to let GAS finish
+      // writing col G before the next refresh can overwrite has-individual
       if (!awardDebounceTimers[rowIndex]) {
-        rowLocked[rowIndex] = false;
+        setTimeout(() => { rowLocked[rowIndex] = false; }, 8000);
       }
       delete awardDebounceTimers[rowIndex];
     }, 500);
@@ -1096,7 +1100,7 @@
       `;
       document.getElementById('modal-footer').innerHTML = `
         <button class="modal-btn modal-btn-cancel" onclick="closeModal()">Go back</button>
-        <button class="modal-btn" style="background:#d93025;color:white;" onclick="markAllDoneAndGenerate()">&#9762; Mark all done &amp; generate</button>
+        <button class="modal-btn" style="background:#d93025;color:white;font-size:0.78rem;" onclick="markAllDoneAndGenerate()">Mark all as done &amp; generate</button>
       `;
       document.getElementById('awards-modal').classList.remove('hidden');
       return;
@@ -1109,26 +1113,42 @@
   }
 
   async function markAllDoneAndGenerate() {
-    if (!confirm('This will mark ALL unticked routines as done and generate the awards summary. Only do this if the show is completely finished. Are you absolutely sure?')) return;
+    closeModal();
 
-    // Mark all undone standard rows as done
     const standardRows = appState.renderOrder
       .map(i => appState.rows[i])
       .filter(r => r && r.rowType === 'standard' && !r.done);
 
-    for (const row of standardRows) {
-      rowLocked[row.rowIndex] = true;
-      appState.rows[row.rowIndex].done = true;
-      await dispatchSave(row.rowIndex, { done: true });
-      rowLocked[row.rowIndex] = false;
+    if (standardRows.length === 0) {
+      setTimeout(() => handleAwardsBtn(), 200);
+      return;
     }
 
-    // Re-render to show updated state
-    renderFullOrder();
-    closeModal();
+    // Single confirmation — no second prompt
+    if (!confirm(standardRows.length + ' routine' + (standardRows.length > 1 ? 's are' : ' is') + ' not ticked. Mark all as done and generate the awards summary?')) return;
 
-    // Small delay then trigger generate
-    setTimeout(() => handleAwardsBtn(), 500);
+    showToast('Marking all done...', false);
+
+    // Mark all as done in appState immediately
+    standardRows.forEach(row => {
+      rowLocked[row.rowIndex] = true;
+      appState.rows[row.rowIndex].done = true;
+    });
+
+    // Re-render immediately so UI reflects the change
+    reconcileDOMChanges();
+
+    // Fire ALL saves in parallel — much faster than sequential
+    await Promise.all(standardRows.map(row =>
+      dispatchSave(row.rowIndex, { done: true }).then(() => {
+        rowLocked[row.rowIndex] = false;
+      })
+    ));
+
+    showToast('All done ✓', false);
+
+    // Now trigger generate
+    setTimeout(() => handleAwardsBtn(), 300);
   }
 
   function closeModal() {
