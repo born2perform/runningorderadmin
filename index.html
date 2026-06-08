@@ -863,6 +863,15 @@
         </div>
       </div>` : '';
 
+    const withdrawnBtn = !row.done && row.school !== 'Withdrawn'
+      ? `<div style="padding:0 14px 10px;">
+           <button onclick="markWithdrawn(${row.rowIndex})"
+             style="background:none;border:none;font-size:0.72rem;color:#bbb;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline;">
+             Mark as withdrawn
+           </button>
+         </div>`
+      : '';
+
     card.innerHTML = `
       <div class="card-main">
         <div class="card-time">${esc(row.time)}</div>
@@ -874,7 +883,8 @@
                 onclick="toggleDone(${row.rowIndex}, this)"
                 aria-label="Mark done">${row.done ? '&#10003;' : ''}</button>
       </div>
-      ${awardHtml}`;
+      ${awardHtml}
+      ${withdrawnBtn}`;
 
     return card;
   }
@@ -902,6 +912,23 @@
   }
 
   // ── INTERACTIONS ─────────────────────────────────────────
+  async function markWithdrawn(rowIndex) {
+    if (!confirm('Mark this routine as withdrawn? This will tick it as done and cannot be undone from the app.')) return;
+    rowLocked[rowIndex] = true;
+    appState.rows[rowIndex].done = true;
+    // Re-render the card
+    const card = document.querySelector('[data-row-index="' + rowIndex + '"]');
+    if (card) {
+      card.classList.add('done');
+      const btn = card.querySelector('.done-btn');
+      if (btn) { btn.classList.add('active'); btn.innerHTML = '&#10003;'; }
+      const wBtn = card.querySelector('button[onclick*="markWithdrawn"]');
+      if (wBtn) wBtn.parentNode.remove();
+    }
+    await dispatchSave(rowIndex, { done: true });
+    rowLocked[rowIndex] = false;
+  }
+
   async function toggleDone(rowIndex, btn) {
     // Clear any pending award save for this row to avoid concurrent writes
     clearTimeout(awardDebounceTimers[rowIndex]);
@@ -1064,10 +1091,12 @@
           ⚠️ <strong>${undone.length} routine${undone.length > 1 ? 's have' : ' has'} not been marked as done.</strong><br>
           All routines must be ticked before generating the awards summary.
         </div>
-        Please go back and mark all routines as complete, then try again.
+        Please go back and mark all routines as complete, then try again.<br><br>
+        <small style="color:#999;">Or use the nuclear option below — only if you are certain the show is finished and all remaining unticked routines did not perform.</small>
       `;
       document.getElementById('modal-footer').innerHTML = `
-        <button class="modal-btn modal-btn-confirm" onclick="closeModal()">OK, got it</button>
+        <button class="modal-btn modal-btn-cancel" onclick="closeModal()">Go back</button>
+        <button class="modal-btn" style="background:#d93025;color:white;" onclick="markAllDoneAndGenerate()">&#9762; Mark all done &amp; generate</button>
       `;
       document.getElementById('awards-modal').classList.remove('hidden');
       return;
@@ -1077,6 +1106,29 @@
     document.getElementById('modal-sub').textContent = 'All routines complete';
     document.getElementById('awards-modal').classList.remove('hidden');
     document.getElementById('awards-modal').classList.remove('hidden');
+  }
+
+  async function markAllDoneAndGenerate() {
+    if (!confirm('This will mark ALL unticked routines as done and generate the awards summary. Only do this if the show is completely finished. Are you absolutely sure?')) return;
+
+    // Mark all undone standard rows as done
+    const standardRows = appState.renderOrder
+      .map(i => appState.rows[i])
+      .filter(r => r && r.rowType === 'standard' && !r.done);
+
+    for (const row of standardRows) {
+      rowLocked[row.rowIndex] = true;
+      appState.rows[row.rowIndex].done = true;
+      await dispatchSave(row.rowIndex, { done: true });
+      rowLocked[row.rowIndex] = false;
+    }
+
+    // Re-render to show updated state
+    renderFullOrder();
+    closeModal();
+
+    // Small delay then trigger generate
+    setTimeout(() => handleAwardsBtn(), 500);
   }
 
   function closeModal() {
@@ -1259,6 +1311,17 @@
   let activeAnnouncement = null;
 
   function openAnnSheet() {
+    // Always reset form to safe defaults before showing
+    document.getElementById('ann-dismissible').checked = true;
+    document.getElementById('ann-text').value = '';
+    document.getElementById('ann-expiry').value = '0';
+    document.getElementById('ann-char-count').textContent = '0 / 280';
+    document.getElementById('ann-post-btn').disabled = true;
+    document.getElementById('ann-dismissible-row').classList.remove('visible');
+    // Reset type to FYI
+    document.querySelectorAll('.ann-type-btn').forEach(function(b) { b.classList.remove('selected'); });
+    document.querySelector('.ann-type-btn[data-type="FYI"]').classList.add('selected');
+    currentAnnType = 'FYI';
     // Show current active announcement if any
     updateAnnSheetState();
     document.getElementById('ann-overlay').classList.add('show');
@@ -1324,8 +1387,20 @@
 
     if (!text) return;
 
-    document.getElementById('ann-post-btn').disabled = true;
-    document.getElementById('ann-post-btn').textContent = 'Posting...';
+    // Warn if replacing an active announcement
+    if (activeAnnouncement && activeAnnouncement.text) {
+      if (!confirm('There is already an active announcement. Replace it with this one?')) return;
+    }
+
+    // Extra safety check for non-dismissible STOP
+    if (currentAnnType === 'STOP' && !dismissible) {
+      if (!confirm('WARNING: This announcement cannot be dismissed by parents. The running order will be blocked until you manually clear it. Are you sure?')) return;
+    }
+
+    var postBtn = document.getElementById('ann-post-btn');
+    postBtn.disabled = true;
+    postBtn.textContent = 'Posting...';
+    postBtn.style.opacity = '0.7';
 
     try {
       const res = await fetch(SCRIPT_URL, {
@@ -1352,12 +1427,18 @@
       console.error('Announcement post failed:', err);
       showToast('Failed to post ✗', true);
     } finally {
-      document.getElementById('ann-post-btn').disabled = false;
-      document.getElementById('ann-post-btn').textContent = 'Post Announcement';
+      postBtn.disabled = false;
+      postBtn.textContent = 'Post Announcement';
+      postBtn.style.opacity = '';
     }
   }
 
   async function clearAnnouncement() {
+    const clearBtn = document.getElementById('ann-clear-btn');
+    const origText = clearBtn.textContent;
+    clearBtn.textContent = 'Clearing...';
+    clearBtn.style.opacity = '0.6';
+    clearBtn.disabled = true;
     try {
       const res = await fetch(SCRIPT_URL, {
         method: 'POST',
@@ -1374,6 +1455,10 @@
     } catch (err) {
       console.error('Clear failed:', err);
       showToast('Failed to clear ✗', true);
+    } finally {
+      clearBtn.textContent = origText;
+      clearBtn.style.opacity = '';
+      clearBtn.disabled = false;
     }
   }
 
@@ -1443,7 +1528,7 @@
     <button class="ann-type-btn headsup" data-type="HEADSUP" onclick="selectAnnType('HEADSUP', this)">
       <span class="type-icon">⚠️</span>
       <span class="type-name">Heads Up</span>
-      <span class="type-desc">Parents need to act</span>
+      <span class="type-desc">Parents need to take note</span>
     </button>
     <button class="ann-type-btn stop" data-type="STOP" onclick="selectAnnType('STOP', this)">
       <span class="type-icon">🚨</span>
@@ -1459,6 +1544,7 @@
     <button class="ann-preset-btn" onclick="usePreset('Short delay — please bear with us 🙏', 'HEADSUP')">🙏 Short delay</button>
     <button class="ann-preset-btn" onclick="usePreset('Show temporarily suspended — please await further updates', 'STOP')">🚨 Suspended</button>
     <button class="ann-preset-btn" onclick="usePreset('Now back on schedule ✅', 'FYI')">✅ Back on schedule</button>
+    <button class="ann-preset-btn" onclick="usePreset('Show paused for toilet break 🚻', 'HEADSUP')">🚽 Toilet break</button>
   </div>
 
   <!-- Text area -->
@@ -1481,6 +1567,9 @@
     <span class="ann-expiry-label">Auto-clear after:</span>
     <select class="ann-expiry-select" id="ann-expiry">
       <option value="0">Never (clear manually)</option>
+      <option value="5">5 minutes</option>
+      <option value="10">10 minutes</option>
+      <option value="15">15 minutes</option>
       <option value="30">30 minutes</option>
       <option value="60">1 hour</option>
       <option value="120">2 hours</option>
