@@ -1,6 +1,6 @@
 {
-  "name": "B2P Running Order",
-  "short_name": "B2P Running Order",
+  "name": "B2P Live",
+  "short_name": "B2P Live",
   "description": "Born2Perform Live Competition Running Order",
   "start_url": "/runningorderadmin/runningorder.html",
   "scope": "/runningorderadmin/",
