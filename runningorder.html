@@ -3,7 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
-  <title>Born2Perform</title>
+  <title>B2P Running Order</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="running-manifest.json">
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="B2P Running Order">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+
   <style>
     body {
       margin: 0; padding: 0; height: 100vh;
@@ -16,27 +25,18 @@
     .container { text-align: center; width: 100%; z-index: 2; }
 
     .logo-area {
-      position: relative;
-      display: inline-block;
-      margin-bottom: 20px;
+      position: relative; display: inline-block; margin-bottom: 20px;
     }
 
     .logo-area::before {
       content: '';
-      position: absolute;
-      top: 50%; left: 50%;
-      width: 140px; height: 140px;
-      background: #FFB90D;
-      border-radius: 50%;
-      transform: translate(-50%, -50%);
-      filter: blur(45px);
-      animation: glowPulse 3s infinite ease-in-out;
-      z-index: 0;
+      position: absolute; top: 50%; left: 50%;
+      width: 140px; height: 140px; background: #FFB90D; border-radius: 50%;
+      transform: translate(-50%, -50%); filter: blur(45px);
+      animation: glowPulse 3s infinite ease-in-out; z-index: 0;
     }
 
-    .logo-area img {
-      width: 160px; height: auto; position: relative; z-index: 1;
-    }
+    .logo-area img { width: 160px; height: auto; position: relative; z-index: 1; }
 
     h1 {
       font-size: 1.4rem; font-weight: 900; letter-spacing: 5px;
@@ -54,8 +54,7 @@
 
     #percentage {
       font-size: 3rem; font-weight: 900; color: white;
-      font-variant-numeric: tabular-nums;
-      margin-bottom: 10px;
+      font-variant-numeric: tabular-nums; margin-bottom: 10px;
     }
 
     .progress-bar-bg {
@@ -65,23 +64,68 @@
 
     #progress-bar-fill {
       width: 0%; height: 100%; background: #FFB90D;
-      box-shadow: 0 0 15px #FFB90D;
-      transition: width 0.1s linear;
+      box-shadow: 0 0 15px #FFB90D; transition: width 0.1s linear;
     }
 
+    /* Launch button */
     #enter-link {
-      display: none;
-      opacity: 0;
-      background-color: #FFB90D;
-      color: #000;
-      text-decoration: none;
-      padding: 22px 70px;
-      font-size: 1.3rem;
-      font-weight: 900;
-      border-radius: 4px;
-      transition: all 0.2s ease;
+      display: none; opacity: 0;
+      background-color: #FFB90D; color: #000; text-decoration: none;
+      padding: 22px 70px; font-size: 1.3rem; font-weight: 900;
+      border-radius: 4px; transition: all 0.2s ease;
       animation: fadeInUp 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards;
       box-shadow: 0 10px 30px rgba(255, 185, 13, 0.4);
+    }
+
+    /* Install prompt wrapper */
+    #install-wrap {
+      display: none; opacity: 0; margin-top: 28px;
+      animation: fadeInUp 0.6s cubic-bezier(0.23, 1, 0.32, 1) 0.3s forwards;
+    }
+
+    .install-divider {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 16px; padding: 0 40px;
+    }
+
+    .install-divider::before,
+    .install-divider::after {
+      content: ''; flex: 1; height: 1px;
+      background: rgba(255,185,13,0.15);
+    }
+
+    .install-divider span {
+      font-size: 0.6rem; letter-spacing: 2px;
+      color: rgba(255,185,13,0.3); text-transform: uppercase;
+    }
+
+    .install-card {
+      display: inline-flex; align-items: center; gap: 12px;
+      border: 1px solid rgba(255,185,13,0.2); border-radius: 12px;
+      padding: 14px 20px; background: rgba(255,185,13,0.04);
+      max-width: 260px; text-align: left;
+    }
+
+    .install-icon { font-size: 1.3rem; opacity: 0.65; flex-shrink: 0; }
+
+    .install-title {
+      font-size: 0.72rem; font-weight: 700;
+      color: rgba(255,185,13,0.65); letter-spacing: 0.5px; margin-bottom: 4px;
+    }
+
+    .install-steps {
+      font-size: 0.63rem; color: rgba(255,255,255,0.3); line-height: 1.6;
+    }
+
+    .install-steps strong { color: rgba(255,185,13,0.45); font-weight: 600; }
+
+    /* Android install button */
+    #android-install-btn {
+      background: transparent;
+      border: 1px solid rgba(255,185,13,0.25); border-radius: 10px;
+      padding: 11px 24px; color: rgba(255,185,13,0.55);
+      font-size: 0.75rem; font-weight: 600; letter-spacing: 0.5px;
+      cursor: pointer; font-family: -apple-system, system-ui, sans-serif;
     }
 
     @keyframes glowPulse {
@@ -106,12 +150,34 @@
     <div id="hype-container">
       <div id="hype-text">INITIALISING...</div>
       <div id="percentage">0%</div>
-      <div class="progress-bar-bg">
-        <div id="progress-bar-fill"></div>
-      </div>
+      <div class="progress-bar-bg"><div id="progress-bar-fill"></div></div>
     </div>
 
     <a href="https://sites.google.com/born2performevents.co.uk/born2performcoventry/running-order" target="_top" id="enter-link">LAUNCH APP</a>
+
+    <!-- Install prompt (shown after loading, hidden if already installed) -->
+    <div id="install-wrap">
+      <div class="install-divider"><span>also</span></div>
+
+      <!-- iOS instructions -->
+      <div id="ios-prompt" style="display:none;">
+        <div class="install-card">
+          <div class="install-icon">&#x2B06;&#xFE0F;</div>
+          <div>
+            <div class="install-title">Save to Home Screen</div>
+            <div class="install-steps">
+              Tap <strong>Share &#x2B06;</strong> at the bottom<br>
+              then tap <strong>Add to Home Screen</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Android button -->
+      <button id="android-install-btn" style="display:none;" onclick="androidInstall()">
+        &#x2B07;&#xFE0F; Add to Home Screen
+      </button>
+    </div>
   </div>
 
   <script>
@@ -123,6 +189,27 @@
 
     document.getElementById('enter-link').href = DESTINATION;
 
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('running-sw.js').catch(function() {});
+    }
+
+    // Capture Android install prompt
+    var deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', function(e) {
+      e.preventDefault();
+      deferredPrompt = e;
+    });
+
+    function androidInstall() {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(function() {
+        deferredPrompt = null;
+        document.getElementById('android-install-btn').style.display = 'none';
+      });
+    }
+
     var hypeWords = [
       'SYNCING THE SCHEDULE...',
       'LOADING PERFORMANCES...',
@@ -132,12 +219,13 @@
       "IT'S GO TIME!"
     ];
 
-    var count      = 0;
-    var percentEl  = document.getElementById('percentage');
-    var textEl     = document.getElementById('hype-text');
-    var fillEl     = document.getElementById('progress-bar-fill');
-    var linkEl     = document.getElementById('enter-link');
+    var count       = 0;
+    var percentEl   = document.getElementById('percentage');
+    var textEl      = document.getElementById('hype-text');
+    var fillEl      = document.getElementById('progress-bar-fill');
+    var linkEl      = document.getElementById('enter-link');
     var containerEl = document.getElementById('hype-container');
+    var installWrap = document.getElementById('install-wrap');
 
     var counter = setInterval(function() {
       count += 1;
@@ -153,9 +241,27 @@
       if (count >= 100) {
         clearInterval(counter);
         textEl.innerText = hypeWords[5];
+
         setTimeout(function() {
           containerEl.style.display = 'none';
-          linkEl.style.display      = 'inline-block';
+          linkEl.style.display = 'inline-block';
+
+          // Show install prompt only if not already installed as PWA
+          var isStandalone = window.matchMedia('(display-mode: standalone)').matches
+                             || window.navigator.standalone === true;
+
+          if (!isStandalone) {
+            var isIOS     = /iphone|ipad|ipod/i.test(navigator.userAgent);
+            var isAndroid = /android/i.test(navigator.userAgent);
+
+            if (isIOS) {
+              document.getElementById('ios-prompt').style.display = 'block';
+              installWrap.style.display = 'block';
+            } else if (isAndroid && deferredPrompt) {
+              document.getElementById('android-install-btn').style.display = 'inline-block';
+              installWrap.style.display = 'block';
+            }
+          }
         }, 400);
       }
     }, 18);
