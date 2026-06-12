@@ -706,8 +706,10 @@
     renderOrder: []
   };
 
-  const rowLocked   = {};  // true while save in flight
+  const rowLocked        = {};  // true while save in flight
   const awardDebounceTimers = {};
+  const awardLockHold    = {};  // true during 12s post-award-save hold period
+  let fetchController    = null; // AbortController for in-flight fetches
 
   // Bottom sheet state — declared here to avoid hoisting issues
   let bsRowIndex = null;
@@ -753,8 +755,13 @@
 
   // ── FETCH & RECONCILE ────────────────────────────────────
   async function fetchData(forceFullRender = false) {
+    // Abort any in-flight fetch — prevents stale responses overwriting fresh state
+    if (fetchController) fetchController.abort();
+    fetchController = new AbortController();
     try {
-      const res  = await fetch(SCRIPT_URL + '?t=' + Date.now());
+      const res  = await fetch(SCRIPT_URL + '?t=' + Date.now(), {
+        signal: fetchController.signal
+      });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
 
@@ -825,6 +832,7 @@
         reconcileDOMChanges();
       }
     } catch (err) {
+      if (err.name === 'AbortError') return; // expected — superseded by newer fetch
       console.error('Fetch error:', err);
     }
   }
@@ -1101,7 +1109,10 @@
     if (card) card.classList.toggle('done', targetState);
 
     await dispatchSave(rowIndex, { done: targetState });
-    rowLocked[rowIndex] = false;
+    // Only release lock if no award save hold is active for this row
+    if (!awardLockHold[rowIndex]) {
+      rowLocked[rowIndex] = false;
+    }
   }
 
   function toggleAward(rowIndex, btn) {
@@ -1150,13 +1161,10 @@
       // col G before the next refresh can merge F+G back into awardText.
       // Also preserve local awardText so merge logic can't overwrite it.
       if (!awardDebounceTimers[rowIndex]) {
+        awardLockHold[rowIndex] = true;
         setTimeout(() => {
-          // Only unlock if awardText hasn't changed since we saved
-          if (appState.rows[rowIndex].awardText === savedAwardText) {
-            rowLocked[rowIndex] = false;
-          } else {
-            rowLocked[rowIndex] = false; // unlock anyway but state is fresh
-          }
+          awardLockHold[rowIndex] = false;
+          rowLocked[rowIndex] = false;
         }, 12000);
       }
       delete awardDebounceTimers[rowIndex];
@@ -1177,8 +1185,9 @@
     } catch (err) {
       console.error('Save failed:', err);
       showToast('Save failed \u2717', true);
-      // Release lock on failure so refresh can recover from sheet
-      rowLocked[rowIndex] = false;
+      // Do NOT release lock here — scheduleAwardSave handles lock release
+      // Releasing here would allow a refresh to overwrite local state
+      // before col G is written, causing has-individual to be stripped
     }
   }
 
