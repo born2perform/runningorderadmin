@@ -1109,8 +1109,13 @@
     if (card) card.classList.toggle('done', targetState);
 
     await dispatchSave(rowIndex, { done: targetState });
-    // Only release lock if no award save hold is active for this row
-    if (!awardLockHold[rowIndex]) {
+    // Only release lock if:
+    // 1. No award save hold is active (12s window)
+    // 2. No award debounce is pending
+    // 3. Bottom sheet is not open for this row
+    const bsOpenForThisRow = bsRowIndex === rowIndex;
+    const awardPending = !!awardDebounceTimers[rowIndex];
+    if (!awardLockHold[rowIndex] && !awardPending && !bsOpenForThisRow) {
       rowLocked[rowIndex] = false;
     }
   }
