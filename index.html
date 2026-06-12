@@ -1144,11 +1144,20 @@
   function scheduleAwardSave(rowIndex) {
     clearTimeout(awardDebounceTimers[rowIndex]);
     awardDebounceTimers[rowIndex] = setTimeout(async () => {
-      await dispatchSave(rowIndex, { awardText: appState.rows[rowIndex].awardText });
-      // Keep row locked for extra 8 seconds after save to let GAS finish
-      // writing col G before the next refresh can overwrite has-individual
+      const savedAwardText = appState.rows[rowIndex].awardText;
+      await dispatchSave(rowIndex, { awardText: savedAwardText });
+      // Keep row locked for 12 seconds after save — GAS needs time to write
+      // col G before the next refresh can merge F+G back into awardText.
+      // Also preserve local awardText so merge logic can't overwrite it.
       if (!awardDebounceTimers[rowIndex]) {
-        setTimeout(() => { rowLocked[rowIndex] = false; }, 8000);
+        setTimeout(() => {
+          // Only unlock if awardText hasn't changed since we saved
+          if (appState.rows[rowIndex].awardText === savedAwardText) {
+            rowLocked[rowIndex] = false;
+          } else {
+            rowLocked[rowIndex] = false; // unlock anyway but state is fresh
+          }
+        }, 12000);
       }
       delete awardDebounceTimers[rowIndex];
     }, 500);
@@ -1445,8 +1454,15 @@
 
     closeBs(false); // don't unlock yet — scheduleAwardSave handles unlock
 
+    // Re-query the pill from DOM — bsBtn may be stale if card was rebuilt
+    const liveCard = document.querySelector('[data-row-index="' + bsRowIndex + '"]');
+    const livePill = liveCard
+      ? liveCard.querySelector('[data-award="' + bsAward + '"]')
+      : bsBtn;
+    const pillEl = livePill || bsBtn;
+
     // Make sure pill is selected
-    bsBtn.classList.add('selected');
+    if (pillEl) pillEl.classList.add('selected');
 
     const current = appState.rows[bsRowIndex].awardText || '';
     const others  = current.split(',').map(a => a.trim())
@@ -1454,11 +1470,11 @@
 
     if (name1) {
       const nameStr = name2 ? name1 + ';' + name2 : name1;
-      bsBtn.classList.add('has-individual');
+      if (pillEl) pillEl.classList.add('has-individual');
       others.push(bsAward + ':' + nameStr);
     } else {
       // No name — treat as team award fallback
-      bsBtn.classList.remove('has-individual');
+      if (pillEl) pillEl.classList.remove('has-individual');
       others.push(bsAward);
     }
 
