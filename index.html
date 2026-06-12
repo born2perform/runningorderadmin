@@ -303,15 +303,45 @@
     }
     .ann-fab:active { transform: scale(0.93); }
 
+    /* Ripple ring — hidden by default */
     .ann-fab-badge {
-      position: absolute; top: 6px; right: 6px;
-      width: 10px; height: 10px;
-      background: #d93025; border-radius: 50%;
-      border: 2px solid #f8f9fa;
-      animation: blink 1.5s infinite;
-      display: none;
+      position: absolute; inset: -6px;
+      border-radius: 50%; border: 2.5px solid transparent;
+      display: none; pointer-events: none;
     }
     .ann-fab-badge.visible { display: block; }
+
+    /* FYI — gold ring */
+    .ann-fab-badge.fyi {
+      border-color: #f1c232;
+      animation: rippleFyi 1.8s ease-out infinite;
+    }
+    /* Heads Up — amber ring */
+    .ann-fab-badge.headsup {
+      border-color: #fb923c;
+      animation: rippleHeadsup 1.8s ease-out infinite;
+    }
+    /* Stop — red ring */
+    .ann-fab-badge.stop {
+      border-color: #f43f5e;
+      animation: rippleStop 1.2s ease-out infinite;
+    }
+
+    @keyframes rippleFyi {
+      0%   { transform: scale(1);    opacity: 1; }
+      70%  { transform: scale(1.45); opacity: 0.4; }
+      100% { transform: scale(1.45); opacity: 0; }
+    }
+    @keyframes rippleHeadsup {
+      0%   { transform: scale(1);    opacity: 1; }
+      70%  { transform: scale(1.45); opacity: 0.4; }
+      100% { transform: scale(1.45); opacity: 0; }
+    }
+    @keyframes rippleStop {
+      0%   { transform: scale(1);    opacity: 1; }
+      60%  { transform: scale(1.5);  opacity: 0.4; }
+      100% { transform: scale(1.5);  opacity: 0; }
+    }
 
     /* ── ANNOUNCEMENT BOTTOM SHEET ───────────────────────── */
     .ann-sheet-overlay {
@@ -1456,10 +1486,12 @@
       activeText.textContent  = activeAnnouncement.text;
       clearBtn.classList.add('visible');
       badge.classList.add('visible');
+      badge.classList.remove('fyi', 'headsup', 'stop');
+      badge.classList.add((activeAnnouncement.type || 'FYI').toLowerCase());
     } else {
       indicator.className = 'ann-active-indicator';
       clearBtn.classList.remove('visible');
-      badge.classList.remove('visible');
+      badge.classList.remove('visible', 'fyi', 'headsup', 'stop');
     }
   }
 
@@ -1510,6 +1542,14 @@
     postBtn.textContent = 'Posting...';
     postBtn.style.opacity = '0.7';
 
+    // Hard timeout — never hang longer than 15 seconds
+    var timeoutId = setTimeout(function() {
+      postBtn.disabled = false;
+      postBtn.textContent = 'Post Announcement';
+      postBtn.style.opacity = '';
+      showToast('Timed out — please try again', true);
+    }, 15000);
+
     try {
       const res = await fetch(SCRIPT_URL, {
         method: 'POST',
@@ -1535,6 +1575,7 @@
       console.error('Announcement post failed:', err);
       showToast('Failed to post ✗', true);
     } finally {
+      clearTimeout(timeoutId);
       postBtn.disabled = false;
       postBtn.textContent = 'Post Announcement';
       postBtn.style.opacity = '';
@@ -1547,6 +1588,14 @@
     clearBtn.textContent = 'Clearing...';
     clearBtn.style.opacity = '0.6';
     clearBtn.disabled = true;
+
+    var clearTimeoutId = setTimeout(function() {
+      clearBtn.textContent = origText;
+      clearBtn.style.opacity = '';
+      clearBtn.disabled = false;
+      showToast('Timed out — please try again', true);
+    }, 15000);
+
     try {
       const res = await fetch(SCRIPT_URL, {
         method: 'POST',
@@ -1564,6 +1613,7 @@
       console.error('Clear failed:', err);
       showToast('Failed to clear ✗', true);
     } finally {
+      clearTimeout(clearTimeoutId);
       clearBtn.textContent = origText;
       clearBtn.style.opacity = '';
       clearBtn.disabled = false;
