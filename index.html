@@ -1436,32 +1436,17 @@
   let activeAnnouncement = null;
 
   function openAnnSheet() {
-    if (activeAnnouncement && activeAnnouncement.text) {
-      // Pre-fill with current active announcement so user can tweak and repost
-      const type = (activeAnnouncement.type || 'FYI').toUpperCase();
-      currentAnnType = type;
-      document.querySelectorAll('.ann-type-btn').forEach(function(b) { b.classList.remove('selected'); });
-      const typeBtn = document.querySelector('.ann-type-btn[data-type="' + type + '"]');
-      if (typeBtn) typeBtn.classList.add('selected');
-      document.getElementById('ann-text').value = activeAnnouncement.text;
-      document.getElementById('ann-expiry').value = activeAnnouncement.expiry || '0';
-      document.getElementById('ann-dismissible').checked = activeAnnouncement.dismissible !== false;
-      document.getElementById('ann-dismissible-row').classList.toggle('visible', type === 'STOP');
-      const len = activeAnnouncement.text.length;
-      document.getElementById('ann-char-count').textContent = len + ' / 280';
-      document.getElementById('ann-post-btn').disabled = false;
-    } else {
-      // No active announcement — reset to safe defaults
-      document.getElementById('ann-dismissible').checked = true;
-      document.getElementById('ann-text').value = '';
-      document.getElementById('ann-expiry').value = '0';
-      document.getElementById('ann-char-count').textContent = '0 / 280';
-      document.getElementById('ann-post-btn').disabled = true;
-      document.getElementById('ann-dismissible-row').classList.remove('visible');
-      document.querySelectorAll('.ann-type-btn').forEach(function(b) { b.classList.remove('selected'); });
-      document.querySelector('.ann-type-btn[data-type="FYI"]').classList.add('selected');
-      currentAnnType = 'FYI';
-    }
+    // Always reset compose form to blank defaults
+    document.getElementById('ann-dismissible').checked = true;
+    document.getElementById('ann-text').value = '';
+    document.getElementById('ann-expiry').value = '0';
+    document.getElementById('ann-char-count').textContent = '0 / 280';
+    document.getElementById('ann-post-btn').disabled = true;
+    document.getElementById('ann-dismissible-row').classList.remove('visible');
+    document.querySelectorAll('.ann-type-btn').forEach(function(b) { b.classList.remove('selected'); });
+    document.querySelector('.ann-type-btn[data-type="FYI"]').classList.add('selected');
+    currentAnnType = 'FYI';
+    // Update live zone
     updateAnnSheetState();
     document.getElementById('ann-overlay').classList.add('show');
     document.getElementById('ann-sheet').classList.add('show');
@@ -1473,26 +1458,32 @@
   }
 
   function updateAnnSheetState() {
-    const indicator = document.getElementById('ann-active-indicator');
-    const clearBtn  = document.getElementById('ann-clear-btn');
+    const indicator  = document.getElementById('ann-active-indicator');
+    const clearBtn   = document.getElementById('ann-clear-btn');
     const activeText = document.getElementById('ann-active-text');
     const activeLabel = document.getElementById('ann-active-label');
-    const badge = document.getElementById('ann-fab-badge');
+    const badge      = document.getElementById('ann-fab-badge');
+    const divider    = document.getElementById('ann-zone-divider');
 
     if (activeAnnouncement && activeAnnouncement.text) {
       const type = (activeAnnouncement.type || 'FYI').toLowerCase();
-      const labels = { fyi: '📢 FYI Active', headsup: '⚠️ Heads Up Active', stop: '🚨 Stop Active' };
+      const labels = { fyi: '📢 FYI — Live Now', headsup: '⚠️ Heads Up — Live Now', stop: '🚨 Stop — Live Now' };
       indicator.className = 'ann-active-indicator visible ' + type;
-      activeLabel.textContent = labels[type] || '📢 Active';
+      activeLabel.textContent = labels[type] || '📢 Live Now';
       activeText.textContent  = activeAnnouncement.text;
+      // Set inline expiry selector to current value
+      document.getElementById('ann-live-expiry').value = activeAnnouncement.expiry || '0';
       clearBtn.classList.add('visible');
+      indicator.querySelector('.ann-live-expiry-row').style.display = 'flex';
       badge.classList.add('visible');
       document.getElementById('ann-fab').classList.add('active');
+      if (divider) divider.style.display = 'flex';
     } else {
       indicator.className = 'ann-active-indicator';
       clearBtn.classList.remove('visible');
       badge.classList.remove('visible');
       document.getElementById('ann-fab').classList.remove('active');
+      if (divider) divider.style.display = 'none';
     }
   }
 
@@ -1621,6 +1612,43 @@
     }
   }
 
+  async function updateExpiry() {
+    if (!activeAnnouncement) return;
+    const newExpiry = parseInt(document.getElementById('ann-live-expiry').value) || 0;
+    // Repost with same text/type but new expiry
+    const btn = document.querySelector('#ann-active-indicator button[onclick="updateExpiry()"]');
+    if (btn) { btn.textContent = 'Saving...'; btn.disabled = true; }
+
+    var timeoutId = setTimeout(function() {
+      if (btn) { btn.textContent = 'Update'; btn.disabled = false; }
+      showToast('Timed out — please try again', true);
+    }, 15000);
+
+    try {
+      const res = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({
+          action:      'postAnnouncement',
+          text:        activeAnnouncement.text,
+          annType:     activeAnnouncement.type,
+          expiry:      newExpiry,
+          dismissible: activeAnnouncement.dismissible !== false
+        }),
+        headers: { 'Content-Type': 'text/plain' }
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      activeAnnouncement.expiry    = newExpiry;
+      activeAnnouncement.timestamp = data.timestamp;
+      showToast('Expiry updated ✓', false);
+    } catch (err) {
+      showToast('Failed to update ✗', true);
+    } finally {
+      clearTimeout(timeoutId);
+      if (btn) { btn.textContent = 'Update'; btn.disabled = false; }
+    }
+  }
+
   // Update badge when fetchData brings back announcement state
   const _origFetchData = fetchData;
   fetchData = async function(forceFullRender) {
@@ -1668,14 +1696,36 @@
     <div class="ann-sheet-title">Post Announcement</div>
   </div>
 
-  <!-- Active announcement indicator -->
+  <!-- Zone 1: Live announcement manager -->
   <div class="ann-active-indicator" id="ann-active-indicator">
     <div class="ann-active-label" id="ann-active-label"></div>
     <div class="ann-active-text" id="ann-active-text"></div>
+    <!-- Inline expiry update -->
+    <div class="ann-live-expiry-row" style="display:none;margin-top:10px;align-items:center;gap:8px;">
+      <span style="font-size:0.72rem;opacity:0.7;">Auto-clear:</span>
+      <select id="ann-live-expiry" class="ann-expiry-select" style="flex:1;font-size:0.78rem;padding:5px 8px;">
+        <option value="0">Never</option>
+        <option value="5">5 minutes</option>
+        <option value="10">10 minutes</option>
+        <option value="15">15 minutes</option>
+        <option value="30">30 minutes</option>
+        <option value="60">1 hour</option>
+        <option value="120">2 hours</option>
+        <option value="480">End of day</option>
+      </select>
+      <button onclick="updateExpiry()" style="background:#f1c232;border:none;border-radius:6px;padding:5px 10px;font-size:0.72rem;font-weight:700;color:#3d2900;cursor:pointer;font-family:inherit;">Update</button>
+    </div>
   </div>
   <button class="ann-clear-btn" id="ann-clear-btn" onclick="clearAnnouncement()">
     ✕ Clear current announcement
   </button>
+
+  <!-- Zone divider -->
+  <div id="ann-zone-divider" style="display:none;align-items:center;gap:10px;padding:4px 20px 0;">
+    <div style="flex:1;height:1px;background:#f0f0f0;"></div>
+    <span style="font-size:0.65rem;color:#bbb;text-transform:uppercase;letter-spacing:1.5px;white-space:nowrap;">New announcement</span>
+    <div style="flex:1;height:1px;background:#f0f0f0;"></div>
+  </div>
 
   <!-- Type selector -->
   <div class="ann-type-grid">
