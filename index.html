@@ -1436,18 +1436,32 @@
   let activeAnnouncement = null;
 
   function openAnnSheet() {
-    // Always reset form to safe defaults before showing
-    document.getElementById('ann-dismissible').checked = true;
-    document.getElementById('ann-text').value = '';
-    document.getElementById('ann-expiry').value = '0';
-    document.getElementById('ann-char-count').textContent = '0 / 280';
-    document.getElementById('ann-post-btn').disabled = true;
-    document.getElementById('ann-dismissible-row').classList.remove('visible');
-    // Reset type to FYI
-    document.querySelectorAll('.ann-type-btn').forEach(function(b) { b.classList.remove('selected'); });
-    document.querySelector('.ann-type-btn[data-type="FYI"]').classList.add('selected');
-    currentAnnType = 'FYI';
-    // Show current active announcement if any
+    if (activeAnnouncement && activeAnnouncement.text) {
+      // Pre-fill with current active announcement so user can tweak and repost
+      const type = (activeAnnouncement.type || 'FYI').toUpperCase();
+      currentAnnType = type;
+      document.querySelectorAll('.ann-type-btn').forEach(function(b) { b.classList.remove('selected'); });
+      const typeBtn = document.querySelector('.ann-type-btn[data-type="' + type + '"]');
+      if (typeBtn) typeBtn.classList.add('selected');
+      document.getElementById('ann-text').value = activeAnnouncement.text;
+      document.getElementById('ann-expiry').value = activeAnnouncement.expiry || '0';
+      document.getElementById('ann-dismissible').checked = activeAnnouncement.dismissible !== false;
+      document.getElementById('ann-dismissible-row').classList.toggle('visible', type === 'STOP');
+      const len = activeAnnouncement.text.length;
+      document.getElementById('ann-char-count').textContent = len + ' / 280';
+      document.getElementById('ann-post-btn').disabled = false;
+    } else {
+      // No active announcement — reset to safe defaults
+      document.getElementById('ann-dismissible').checked = true;
+      document.getElementById('ann-text').value = '';
+      document.getElementById('ann-expiry').value = '0';
+      document.getElementById('ann-char-count').textContent = '0 / 280';
+      document.getElementById('ann-post-btn').disabled = true;
+      document.getElementById('ann-dismissible-row').classList.remove('visible');
+      document.querySelectorAll('.ann-type-btn').forEach(function(b) { b.classList.remove('selected'); });
+      document.querySelector('.ann-type-btn[data-type="FYI"]').classList.add('selected');
+      currentAnnType = 'FYI';
+    }
     updateAnnSheetState();
     document.getElementById('ann-overlay').classList.add('show');
     document.getElementById('ann-sheet').classList.add('show');
