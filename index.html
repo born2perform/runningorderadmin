@@ -303,44 +303,31 @@
     }
     .ann-fab:active { transform: scale(0.93); }
 
-    /* Ripple ring — hidden by default */
+    /* Red dot */
     .ann-fab-badge {
-      position: absolute; inset: -6px;
-      border-radius: 50%; border: 2.5px solid transparent;
+      position: absolute; top: 7px; right: 7px;
+      width: 11px; height: 11px; border-radius: 50%;
+      background: #d93025; border: 2px solid #f8f9fa;
       display: none; pointer-events: none;
     }
     .ann-fab-badge.visible { display: block; }
 
-    /* FYI — gold ring */
-    .ann-fab-badge.fyi {
-      border-color: #f1c232;
-      animation: rippleFyi 1.8s ease-out infinite;
+    /* Ripple rings — two concentric rings pulsing outward */
+    .ann-fab::before,
+    .ann-fab::after {
+      content: '';
+      position: absolute; inset: 0;
+      border-radius: 50%;
+      border: 2px solid #d93025;
+      opacity: 0;
+      display: none;
     }
-    /* Heads Up — amber ring */
-    .ann-fab-badge.headsup {
-      border-color: #fb923c;
-      animation: rippleHeadsup 1.8s ease-out infinite;
-    }
-    /* Stop — red ring */
-    .ann-fab-badge.stop {
-      border-color: #f43f5e;
-      animation: rippleStop 1.2s ease-out infinite;
-    }
+    .ann-fab.active::before { display: block; animation: ripple 2s ease-out infinite; }
+    .ann-fab.active::after  { display: block; animation: ripple 2s ease-out 0.7s infinite; }
 
-    @keyframes rippleFyi {
-      0%   { transform: scale(1);    opacity: 1; }
-      70%  { transform: scale(1.45); opacity: 0.4; }
-      100% { transform: scale(1.45); opacity: 0; }
-    }
-    @keyframes rippleHeadsup {
-      0%   { transform: scale(1);    opacity: 1; }
-      70%  { transform: scale(1.45); opacity: 0.4; }
-      100% { transform: scale(1.45); opacity: 0; }
-    }
-    @keyframes rippleStop {
-      0%   { transform: scale(1);    opacity: 1; }
-      60%  { transform: scale(1.5);  opacity: 0.4; }
-      100% { transform: scale(1.5);  opacity: 0; }
+    @keyframes ripple {
+      0%   { transform: scale(1);   opacity: 0.7; }
+      100% { transform: scale(1.9); opacity: 0; }
     }
 
     /* ── ANNOUNCEMENT BOTTOM SHEET ───────────────────────── */
@@ -1486,12 +1473,12 @@
       activeText.textContent  = activeAnnouncement.text;
       clearBtn.classList.add('visible');
       badge.classList.add('visible');
-      badge.classList.remove('fyi', 'headsup', 'stop');
-      badge.classList.add((activeAnnouncement.type || 'FYI').toLowerCase());
+      document.getElementById('ann-fab').classList.add('active');
     } else {
       indicator.className = 'ann-active-indicator';
       clearBtn.classList.remove('visible');
-      badge.classList.remove('visible', 'fyi', 'headsup', 'stop');
+      badge.classList.remove('visible');
+      document.getElementById('ann-fab').classList.remove('active');
     }
   }
 
