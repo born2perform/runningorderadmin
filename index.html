@@ -364,30 +364,79 @@
     }
 
     /* Active announcement indicator inside sheet */
+    /* Zone 1 — live preview wrapper */
+    .ann-live-zone {
+      display: none;
+      background: #f8f8f8;
+      padding: 14px 16px 0;
+      border-bottom: 2px solid #eeeeee;
+      margin-bottom: 4px;
+    }
+    .ann-live-zone.visible { display: block; }
+
+    /* Live banner preview — mirrors customer view exactly */
     .ann-active-indicator {
-      margin: 12px 20px;
-      padding: 10px 14px;
-      border-radius: 8px;
+      border-radius: 10px;
       font-size: 0.8rem;
       display: none;
+      position: relative;
+      overflow: hidden;
     }
     .ann-active-indicator.visible { display: block; }
-    .ann-active-indicator.fyi     { background: #fffbeb; border: 1px solid #f1c232; color: #78530a; }
-    .ann-active-indicator.headsup { background: #fff7ed; border: 1px solid #fb923c; color: #9a3412; }
-    .ann-active-indicator.stop    { background: #fff1f2; border: 1px solid #f43f5e; color: #9f1239; }
+    .ann-active-indicator.fyi     { background: #fffbeb; border: 1.5px solid #f1c232; }
+    .ann-active-indicator.headsup { background: #fff7ed; border: 1.5px solid #fb923c; }
+    .ann-active-indicator.stop    { background: #fff1f2; border: 1.5px solid #f43f5e; }
 
     .ann-active-label {
-      font-size: 0.65rem; font-weight: 800; letter-spacing: 1.5px;
-      text-transform: uppercase; margin-bottom: 4px;
+      font-size: 0.68rem; font-weight: 800; letter-spacing: 1.5px;
+      text-transform: uppercase; margin-bottom: 5px;
+    }
+    .ann-active-label.fyi     { color: #92690a; }
+    .ann-active-label.headsup { color: #c2410c; }
+    .ann-active-label.stop    { color: #be123c; }
+
+    .ann-active-text { font-weight: 500; line-height: 1.4; font-size: 0.88rem; }
+    .ann-active-text.fyi     { color: #78530a; }
+    .ann-active-text.headsup { color: #9a3412; }
+    .ann-active-text.stop    { color: #9f1239; }
+
+    /* LIVE chip */
+    .ann-live-chip {
+      position: absolute; top: 10px; right: 10px;
+      display: flex; align-items: center; gap: 5px;
+      background: #d93025; color: white;
+      border-radius: 20px; padding: 3px 9px;
+      font-size: 0.65rem; font-weight: 800;
+      letter-spacing: 1.5px; text-transform: uppercase;
+    }
+    .ann-live-chip-dot {
+      width: 6px; height: 6px; background: white;
+      border-radius: 50%; animation: blink 1s infinite;
+      flex-shrink: 0;
     }
 
-    .ann-active-text { font-weight: 500; line-height: 1.4; }
+    /* Expiry row inside live zone */
+    .ann-live-expiry-row {
+      display: none; align-items: center; gap: 8px;
+      padding: 10px 0 14px;
+    }
+    .ann-live-expiry-label {
+      font-size: 0.72rem; color: #888; white-space: nowrap;
+    }
+    .ann-live-update-btn {
+      background: #1a1a1a; border: none; border-radius: 6px;
+      padding: 6px 12px; font-size: 0.72rem; font-weight: 700;
+      color: white; cursor: pointer; font-family: inherit;
+      white-space: nowrap;
+      -webkit-tap-highlight-color: transparent;
+    }
 
     .ann-clear-btn {
-      display: none; width: calc(100% - 40px); margin: 0 20px 4px;
+      display: none; width: 100%; margin: 0 0 14px;
       padding: 10px; border-radius: 8px;
-      background: #f5f5f5; color: #d93025;
-      border: none; font-size: 0.85rem; font-weight: 700;
+      background: #fff0f0; color: #d93025;
+      border: 1px solid #ffcdd2;
+      font-size: 0.85rem; font-weight: 700;
       cursor: pointer; font-family: inherit;
       -webkit-tap-highlight-color: transparent;
     }
@@ -1458,32 +1507,43 @@
   }
 
   function updateAnnSheetState() {
+    const liveZone   = document.getElementById('ann-live-zone');
     const indicator  = document.getElementById('ann-active-indicator');
     const clearBtn   = document.getElementById('ann-clear-btn');
     const activeText = document.getElementById('ann-active-text');
     const activeLabel = document.getElementById('ann-active-label');
+    const expiryRow  = document.getElementById('ann-live-expiry-row');
     const badge      = document.getElementById('ann-fab-badge');
-    const divider    = document.getElementById('ann-zone-divider');
 
     if (activeAnnouncement && activeAnnouncement.text) {
       const type = (activeAnnouncement.type || 'FYI').toLowerCase();
-      const labels = { fyi: '📢 FYI — Live Now', headsup: '⚠️ Heads Up — Live Now', stop: '🚨 Stop — Live Now' };
+      const labels = { fyi: '📢 Notice', headsup: '⚠️ Heads Up', stop: '🚨 Important' };
+
+      // Show live zone
+      liveZone.classList.add('visible');
+
+      // Style banner exactly like customer view
       indicator.className = 'ann-active-indicator visible ' + type;
-      activeLabel.textContent = labels[type] || '📢 Live Now';
-      activeText.textContent  = activeAnnouncement.text;
-      // Set inline expiry selector to current value
+      activeLabel.className = 'ann-active-label ' + type;
+      activeLabel.textContent = labels[type] || '📢 Notice';
+      activeText.className = 'ann-active-text ' + type;
+      activeText.textContent = activeAnnouncement.text;
+
+      // Set expiry
       document.getElementById('ann-live-expiry').value = activeAnnouncement.expiry || '0';
+      expiryRow.style.display = 'flex';
       clearBtn.classList.add('visible');
-      indicator.querySelector('.ann-live-expiry-row').style.display = 'flex';
+
+      // FAB badge
       badge.classList.add('visible');
       document.getElementById('ann-fab').classList.add('active');
-      if (divider) divider.style.display = 'flex';
     } else {
+      liveZone.classList.remove('visible');
       indicator.className = 'ann-active-indicator';
+      expiryRow.style.display = 'none';
       clearBtn.classList.remove('visible');
       badge.classList.remove('visible');
       document.getElementById('ann-fab').classList.remove('active');
-      if (divider) divider.style.display = 'none';
     }
   }
 
@@ -1696,14 +1756,25 @@
     <div class="ann-sheet-title">Post Announcement</div>
   </div>
 
-  <!-- Zone 1: Live announcement manager -->
-  <div class="ann-active-indicator" id="ann-active-indicator">
-    <div class="ann-active-label" id="ann-active-label"></div>
-    <div class="ann-active-text" id="ann-active-text"></div>
-    <!-- Inline expiry update -->
-    <div class="ann-live-expiry-row" style="display:none;margin-top:10px;align-items:center;gap:8px;">
-      <span style="font-size:0.72rem;opacity:0.7;">Auto-clear:</span>
-      <select id="ann-live-expiry" class="ann-expiry-select" style="flex:1;font-size:0.78rem;padding:5px 8px;">
+  <!-- Zone 1: Live announcement preview -->
+  <div class="ann-live-zone" id="ann-live-zone">
+
+    <!-- Banner preview — exactly what parents see -->
+    <div class="ann-active-indicator" id="ann-active-indicator">
+      <div style="padding:12px 14px;">
+        <div class="ann-active-label" id="ann-active-label"></div>
+        <div class="ann-active-text" id="ann-active-text"></div>
+      </div>
+      <div class="ann-live-chip">
+        <span class="ann-live-chip-dot"></span>
+        LIVE
+      </div>
+    </div>
+
+    <!-- Expiry update row -->
+    <div class="ann-live-expiry-row" id="ann-live-expiry-row">
+      <span class="ann-live-expiry-label">Auto-clear:</span>
+      <select id="ann-live-expiry" class="ann-expiry-select" style="flex:1;">
         <option value="0">Never</option>
         <option value="5">5 minutes</option>
         <option value="10">10 minutes</option>
@@ -1713,18 +1784,13 @@
         <option value="120">2 hours</option>
         <option value="480">End of day</option>
       </select>
-      <button onclick="updateExpiry()" style="background:#f1c232;border:none;border-radius:6px;padding:5px 10px;font-size:0.72rem;font-weight:700;color:#3d2900;cursor:pointer;font-family:inherit;">Update</button>
+      <button class="ann-live-update-btn" onclick="updateExpiry()">Update expiry</button>
     </div>
-  </div>
-  <button class="ann-clear-btn" id="ann-clear-btn" onclick="clearAnnouncement()">
-    ✕ Clear current announcement
-  </button>
 
-  <!-- Zone divider -->
-  <div id="ann-zone-divider" style="display:none;align-items:center;gap:10px;padding:4px 20px 0;">
-    <div style="flex:1;height:1px;background:#f0f0f0;"></div>
-    <span style="font-size:0.65rem;color:#bbb;text-transform:uppercase;letter-spacing:1.5px;white-space:nowrap;">New announcement</span>
-    <div style="flex:1;height:1px;background:#f0f0f0;"></div>
+    <button class="ann-clear-btn" id="ann-clear-btn" onclick="clearAnnouncement()">
+      ✕ Clear current announcement
+    </button>
+
   </div>
 
   <!-- Type selector -->
