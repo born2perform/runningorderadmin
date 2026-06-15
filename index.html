@@ -617,27 +617,15 @@
       -webkit-tap-highlight-color: transparent;
     }
 
-    /* Log icon on card */
-    .card-log-row {
-      display: flex; align-items: center;
-      justify-content: space-between;
-      padding: 0 14px 10px;
-    }
-
+    /* Log icon button */
     .card-log-btn {
       background: none; border: none;
-      font-size: 1rem; cursor: pointer; color: #ccc;
+      font-size: 0.8rem; cursor: pointer;
       padding: 0; line-height: 1;
       -webkit-tap-highlight-color: transparent;
-      margin-left: auto; /* always push to right even when alone */
-      display: block;
+      opacity: 0.4;
     }
-    .card-log-btn:active { color: #888; }
-
-    /* Ensure card-log-row always shows */
-    .card-log-row {
-      min-height: 24px;
-    }
+    .card-log-btn:active { opacity: 0.8; }
 
     /* ── TOAST ──────────────────────────────────────────── */
     .saving-toast {
@@ -986,7 +974,7 @@
 
       // If withdrawn state or done state changed significantly, rebuild the card
       const wasWithdrawn = element.dataset.withdrawn === 'true';
-      const wasDone      = element.classList.contains('done');
+      const wasDone      = element.dataset.done === 'true';
 
       if (isWithdrawn !== wasWithdrawn || (isDone !== wasDone && row.rowType === 'standard')) {
         const container = document.getElementById('running-order');
@@ -1003,15 +991,10 @@
           btn.classList.toggle('active', isDone);
           btn.innerHTML = isDone ? '&#10003;' : '';
         }
-        // Update withdrawn link visibility — log icon always stays visible
+        // Withdrawn link visibility — hide when done (unless withdrawn)
         const wWrap = element.querySelector('.withdrawn-wrap');
         if (wWrap) {
-          wWrap.style.display = ''; // always show the row (log icon always visible)
-          const wLink = wWrap.querySelector('span');
-          if (wLink) {
-            // Hide the withdrawn link when done (unless withdrawn)
-            wLink.style.display = (isDone && !isWithdrawn) ? 'none' : '';
-          }
+          wWrap.style.display = (isDone && !isWithdrawn) ? 'none' : '';
         }
         // Parse selected awards stripping :Name suffix
         const selectedAwardKeys = row.awardText
@@ -1048,6 +1031,7 @@
     card.className = 'row-card' + (row.done ? ' done' : '') + (row.withdrawn ? ' withdrawn' : '');
     card.dataset.rowIndex  = row.rowIndex;
     card.dataset.withdrawn = row.withdrawn ? 'true' : 'false';
+    card.dataset.done      = row.done ? 'true' : 'false';
 
     // Split on comma — matches Google Sheets multi-select format
     // Parse selected awards — strip :Name suffix for comparison
@@ -1092,14 +1076,11 @@
            Mark as withdrawn
          </button>`;
 
-    // Withdrawn link shows when not done, or always when withdrawn
+    // Withdrawn link shows when not done, or always when withdrawn (for unmark)
     const showWithdrawnLink = row.withdrawn || !row.done;
-    const withdrawnBtnHtml = showWithdrawnLink ? `<span>${withdrawnLink}</span>` : '';
-
-    const withdrawnBtn = `<div class="card-log-row withdrawn-wrap">
-      ${withdrawnBtnHtml}
-      <button class="card-log-btn" onclick="openLogSheet(${row.rowIndex})" aria-label="View activity log">📋</button>
-    </div>`;
+    const withdrawnBtn = showWithdrawnLink
+      ? `<div class="withdrawn-wrap" style="padding:0 14px 10px;">${withdrawnLink}</div>`
+      : '';
 
     // Withdrawn cards: no done button, no awards, just unmark option
     const doneBtnHtml = row.withdrawn ? '' :
@@ -1114,7 +1095,10 @@
           <div class="card-school">${esc(row.school)}</div>
           <div class="card-team">${esc(row.team)}</div>
         </div>
-        ${doneBtnHtml}
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;">
+          ${doneBtnHtml}
+          <button class="card-log-btn" onclick="openLogSheet(${row.rowIndex})" aria-label="View activity log" style="font-size:0.8rem;opacity:0.4;">📋</button>
+        </div>
       </div>
       ${row.withdrawn ? '' : awardHtml}
       ${withdrawnBtn}`;
@@ -1218,7 +1202,10 @@
     btn.classList.toggle('active', targetState);
     btn.innerHTML = targetState ? '&#10003;' : '';
     const card = btn.closest('.row-card, .special-row');
-    if (card) card.classList.toggle('done', targetState);
+    if (card) {
+      card.classList.toggle('done', targetState);
+      card.dataset.done = targetState ? 'true' : 'false';
+    }
 
     await dispatchSave(rowIndex, { done: targetState });
     // Only release lock if:
