@@ -629,8 +629,15 @@
       font-size: 1rem; cursor: pointer; color: #ccc;
       padding: 0; line-height: 1;
       -webkit-tap-highlight-color: transparent;
+      margin-left: auto; /* always push to right even when alone */
+      display: block;
     }
     .card-log-btn:active { color: #888; }
+
+    /* Ensure card-log-row always shows */
+    .card-log-row {
+      min-height: 24px;
+    }
 
     /* ── TOAST ──────────────────────────────────────────── */
     .saving-toast {
@@ -1085,9 +1092,9 @@
            Mark as withdrawn
          </button>`;
 
-    const withdrawnBtnHtml = (row.done && !row.withdrawn)
-      ? ''
-      : `<span>${withdrawnLink}</span>`;
+    // Withdrawn link shows when not done, or always when withdrawn
+    const showWithdrawnLink = row.withdrawn || !row.done;
+    const withdrawnBtnHtml = showWithdrawnLink ? `<span>${withdrawnLink}</span>` : '';
 
     const withdrawnBtn = `<div class="card-log-row withdrawn-wrap">
       ${withdrawnBtnHtml}
