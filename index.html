@@ -533,6 +533,105 @@
     }
     .ann-post-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+    /* ── LOG BOTTOM SHEET ───────────────────────────────── */
+    .log-sheet-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      z-index: 400; opacity: 0; pointer-events: none;
+      transition: opacity 0.25s;
+    }
+    .log-sheet-overlay.show { opacity: 1; pointer-events: all; }
+
+    .log-sheet {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: #fff; border-radius: 16px 16px 0 0;
+      padding: 0 0 32px;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+      z-index: 401; max-width: 480px; margin: 0 auto;
+      max-height: 75vh; overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .log-sheet.show { transform: translateY(0); }
+
+    .log-sheet-handle {
+      width: 36px; height: 4px; background: #ddd;
+      border-radius: 2px; margin: 12px auto 0;
+    }
+
+    .log-sheet-header {
+      padding: 14px 20px 10px;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; background: #fff; z-index: 1;
+    }
+
+    .log-sheet-title {
+      font-size: 0.9rem; font-weight: 700; color: #1a1a1a;
+    }
+
+    .log-sheet-close {
+      background: none; border: none; font-size: 1.2rem;
+      cursor: pointer; color: #999; padding: 0; line-height: 1;
+    }
+
+    .log-entry {
+      padding: 10px 20px;
+      border-bottom: 1px solid #f8f8f8;
+      display: flex; gap: 10px; align-items: flex-start;
+    }
+
+    .log-entry-time {
+      font-size: 0.68rem; color: #999; white-space: nowrap;
+      min-width: 60px; padding-top: 2px;
+    }
+
+    .log-entry-action {
+      font-size: 0.72rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      white-space: nowrap; padding-top: 2px;
+    }
+
+    .log-entry-action.ticked    { color: #1e8c45; }
+    .log-entry-action.unticked  { color: #888; }
+    .log-entry-action.award     { color: #b8912a; }
+    .log-entry-action.withdrawn { color: #d93025; }
+    .log-entry-action.announce  { color: #4a86e8; }
+
+    .log-entry-value {
+      font-size: 0.75rem; color: #555; flex: 1;
+      line-height: 1.4;
+    }
+
+    .log-empty {
+      padding: 30px 20px; text-align: center;
+      color: #bbb; font-size: 0.85rem;
+    }
+
+    .log-full-btn {
+      margin: 12px 20px 0;
+      width: calc(100% - 40px);
+      padding: 10px; border-radius: 8px;
+      background: #f5f5f5; color: #555;
+      border: none; font-size: 0.82rem; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Log icon on card */
+    .card-log-row {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      padding: 0 14px 10px;
+    }
+
+    .card-log-btn {
+      background: none; border: none;
+      font-size: 1rem; cursor: pointer; color: #ccc;
+      padding: 0; line-height: 1;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .card-log-btn:active { color: #888; }
+
     /* ── TOAST ──────────────────────────────────────────── */
     .saving-toast {
       position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
@@ -1719,11 +1818,11 @@
     if (!activeAnnouncement) return;
     const newExpiry = parseInt(document.getElementById('ann-live-expiry').value) || 0;
     // Repost with same text/type but new expiry
-    const btn = document.querySelector('#ann-active-indicator button[onclick="updateExpiry()"]');
+    const btn = document.querySelector('.ann-live-update-btn');
     if (btn) { btn.textContent = 'Saving...'; btn.disabled = true; }
 
     var timeoutId = setTimeout(function() {
-      if (btn) { btn.textContent = 'Update'; btn.disabled = false; }
+      if (btn) { btn.textContent = 'Update expiry'; btn.disabled = false; }
       showToast('Timed out — please try again', true);
     }, 15000);
 
@@ -1748,7 +1847,7 @@
       showToast('Failed to update ✗', true);
     } finally {
       clearTimeout(timeoutId);
-      if (btn) { btn.textContent = 'Update'; btn.disabled = false; }
+      if (btn) { btn.textContent = 'Update expiry'; btn.disabled = false; }
     }
   }
 
@@ -1758,6 +1857,95 @@
     await _origFetchData(forceFullRender);
     // Sync activeAnnouncement from appState if GAS returns it
   };
+
+  // ── ACTION LOG VIEWER ────────────────────────────────────
+  let logRowIndex = null;
+
+  function openLogSheet(rowIndex) {
+    logRowIndex = rowIndex;
+    const row = appState.rows[rowIndex];
+    const title = row ? esc(row.school) + ' — ' + esc(row.team) : 'Activity Log';
+    document.getElementById('log-sheet-title').textContent = title;
+    document.getElementById('log-full-btn').style.display = 'block';
+    loadRoutineLog(rowIndex);
+    document.getElementById('log-overlay').classList.add('show');
+    document.getElementById('log-sheet').classList.add('show');
+  }
+
+  function closeLogSheet() {
+    document.getElementById('log-overlay').classList.remove('show');
+    document.getElementById('log-sheet').classList.remove('show');
+  }
+
+  async function loadRoutineLog(rowIndex) {
+    const body = document.getElementById('log-sheet-body');
+    body.innerHTML = '<div class="log-empty">Loading...</div>';
+
+    try {
+      const res  = await fetch(SCRIPT_URL + '?action=getLog&rowIndex=' + rowIndex + '&t=' + Date.now());
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      renderLogEntries(data.entries, body);
+    } catch(err) {
+      body.innerHTML = '<div class="log-empty">Could not load log.</div>';
+    }
+  }
+
+  async function loadFullLog() {
+    const body  = document.getElementById('log-sheet-body');
+    const title = document.getElementById('log-sheet-title');
+    title.textContent = 'Full Day Log';
+    document.getElementById('log-full-btn').style.display = 'none';
+    body.innerHTML = '<div class="log-empty">Loading...</div>';
+
+    try {
+      const res  = await fetch(SCRIPT_URL + '?action=getLog&t=' + Date.now());
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      renderLogEntries(data.entries, body);
+      // Show back button
+      const backBtn = document.createElement('button');
+      backBtn.className = 'log-full-btn';
+      backBtn.textContent = '← Back to routine log';
+      backBtn.onclick = function() {
+        document.getElementById('log-sheet-title').textContent =
+          appState.rows[logRowIndex]
+            ? esc(appState.rows[logRowIndex].school) + ' — ' + esc(appState.rows[logRowIndex].team)
+            : 'Activity Log';
+        document.getElementById('log-full-btn').style.display = 'block';
+        body.removeChild(backBtn);
+        loadRoutineLog(logRowIndex);
+      };
+      body.appendChild(backBtn);
+    } catch(err) {
+      body.innerHTML = '<div class="log-empty">Could not load log.</div>';
+    }
+  }
+
+  function renderLogEntries(entries, container) {
+    if (!entries || entries.length === 0) {
+      container.innerHTML = '<div class="log-empty">No activity recorded for this routine.</div>';
+      return;
+    }
+    const actionClass = {
+      'TICKED DONE':         'ticked',
+      'UNTICKED':            'unticked',
+      'AWARD SET':           'award',
+      'AWARDS CLEARED':      'award',
+      'MARKED WITHDRAWN':    'withdrawn',
+      'UNMARKED WITHDRAWN':  'withdrawn',
+      'ANNOUNCEMENT POSTED': 'announce',
+      'ANNOUNCEMENT CLEARED':'announce'
+    };
+    container.innerHTML = entries.map(function(e) {
+      const cls = actionClass[e.action] || 'unticked';
+      return '<div class="log-entry">' +
+        '<div class="log-entry-time">' + esc(e.timestamp) + '</div>' +
+        '<div class="log-entry-action ' + cls + '">' + esc(e.action) + '</div>' +
+        '<div class="log-entry-value">' + esc(e.value || '') + '</div>' +
+      '</div>';
+    }).join('');
+  }
 
   // ── LIVE REFRESH ─────────────────────────────────────────
   setInterval(() => fetchData(false), 10000);
@@ -1899,6 +2087,18 @@
   <button class="ann-post-btn" id="ann-post-btn" onclick="postAnnouncement()">
     Post Announcement
   </button>
+</div>
+
+<!-- LOG BOTTOM SHEET -->
+<div class="log-sheet-overlay" id="log-overlay" onclick="closeLogSheet()"></div>
+<div class="log-sheet" id="log-sheet">
+  <div class="log-sheet-handle"></div>
+  <div class="log-sheet-header">
+    <div class="log-sheet-title" id="log-sheet-title">Activity Log</div>
+    <button class="log-sheet-close" onclick="closeLogSheet()">✕</button>
+  </div>
+  <div id="log-sheet-body"></div>
+  <button class="log-full-btn" id="log-full-btn" onclick="loadFullLog()">📋 View full day log</button>
 </div>
 
 <!-- AWARDS MODAL -->
