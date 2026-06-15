@@ -620,12 +620,11 @@
     /* Log icon button */
     .card-log-btn {
       background: none; border: none;
-      font-size: 0.8rem; cursor: pointer;
+      font-size: 1rem; cursor: pointer; color: #bbb;
       padding: 0; line-height: 1;
       -webkit-tap-highlight-color: transparent;
-      opacity: 0.4;
     }
-    .card-log-btn:active { opacity: 0.8; }
+    .card-log-btn:active { color: #555; }
 
     /* ── TOAST ──────────────────────────────────────────── */
     .saving-toast {
@@ -991,11 +990,8 @@
           btn.classList.toggle('active', isDone);
           btn.innerHTML = isDone ? '&#10003;' : '';
         }
-        // Withdrawn link visibility — hide when done (unless withdrawn)
-        const wWrap = element.querySelector('.withdrawn-wrap');
-        if (wWrap) {
-          wWrap.style.display = (isDone && !isWithdrawn) ? 'none' : '';
-        }
+        // Withdrawn row visibility — rebuild card if done state changed
+        // (withdrawn link and log icon position depends on done state)
         // Parse selected awards stripping :Name suffix
         const selectedAwardKeys = row.awardText
           ? row.awardText.split(',').map(a => {
@@ -1078,15 +1074,27 @@
 
     // Withdrawn link shows when not done, or always when withdrawn (for unmark)
     const showWithdrawnLink = row.withdrawn || !row.done;
-    const withdrawnBtn = showWithdrawnLink
-      ? `<div class="withdrawn-wrap" style="padding:0 14px 10px;">${withdrawnLink}</div>`
-      : '';
 
     // Withdrawn cards: no done button, no awards, just unmark option
     const doneBtnHtml = row.withdrawn ? '' :
       `<button class="done-btn${row.done ? ' active' : ''}"
                onclick="toggleDone(${row.rowIndex}, this)"
                aria-label="Mark done">${row.done ? '&#10003;' : ''}</button>`;
+
+    const logBtn = `<button class="card-log-btn" onclick="openLogSheet(${row.rowIndex})" aria-label="View activity log">📋</button>`;
+
+    // When withdrawn link visible: log icon on same row (right side)
+    // When done and no withdrawn link: log icon inline after awards (right side)
+    const withdrawnRowHtml = showWithdrawnLink
+      ? `<div class="withdrawn-wrap" style="display:flex;align-items:center;justify-content:space-between;padding:0 14px 10px;">
+           ${withdrawnLink}
+           ${logBtn}
+         </div>`
+      : '';
+
+    const logAloneHtml = !showWithdrawnLink
+      ? `<div style="display:flex;justify-content:flex-end;padding:0 14px 6px;">${logBtn}</div>`
+      : '';
 
     card.innerHTML = `
       <div class="card-main">
@@ -1095,13 +1103,11 @@
           <div class="card-school">${esc(row.school)}</div>
           <div class="card-team">${esc(row.team)}</div>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;">
-          ${doneBtnHtml}
-          <button class="card-log-btn" onclick="openLogSheet(${row.rowIndex})" aria-label="View activity log" style="font-size:0.8rem;opacity:0.4;">📋</button>
-        </div>
+        ${doneBtnHtml}
       </div>
       ${row.withdrawn ? '' : awardHtml}
-      ${withdrawnBtn}`;
+      ${withdrawnRowHtml}
+      ${logAloneHtml}`;
 
     return card;
   }
