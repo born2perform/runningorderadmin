@@ -996,13 +996,14 @@
           btn.classList.toggle('active', isDone);
           btn.innerHTML = isDone ? '&#10003;' : '';
         }
-        // Update withdrawn button visibility
+        // Update withdrawn link visibility — log icon always stays visible
         const wWrap = element.querySelector('.withdrawn-wrap');
         if (wWrap) {
-          if (isWithdrawn) {
-            wWrap.style.display = '';
-          } else {
-            wWrap.style.display = isDone ? 'none' : '';
+          wWrap.style.display = ''; // always show the row (log icon always visible)
+          const wLink = wWrap.querySelector('span');
+          if (wLink) {
+            // Hide the withdrawn link when done (unless withdrawn)
+            wLink.style.display = (isDone && !isWithdrawn) ? 'none' : '';
           }
         }
         // Parse selected awards stripping :Name suffix
@@ -1084,8 +1085,12 @@
            Mark as withdrawn
          </button>`;
 
-    const withdrawnBtn = `<div class="card-log-row withdrawn-wrap" style="${row.done && !row.withdrawn ? 'display:none;' : ''}">
-      ${withdrawnLink}
+    const withdrawnBtnHtml = (row.done && !row.withdrawn)
+      ? ''
+      : `<span>${withdrawnLink}</span>`;
+
+    const withdrawnBtn = `<div class="card-log-row withdrawn-wrap">
+      ${withdrawnBtnHtml}
       <button class="card-log-btn" onclick="openLogSheet(${row.rowIndex})" aria-label="View activity log">📋</button>
     </div>`;
 
