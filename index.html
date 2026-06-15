@@ -1060,6 +1060,7 @@
             </button>`;
           }).join('')}
         </div>
+        ${!showWithdrawnLink ? `<div style="display:flex;justify-content:flex-end;padding:4px 0 2px;"><button class="card-log-btn" onclick="openLogSheet(${row.rowIndex})" aria-label="View activity log">📋</button></div>` : ''}
       </div>` : '';
 
     const withdrawnLink = row.withdrawn
@@ -1092,9 +1093,7 @@
          </div>`
       : '';
 
-    const logAloneHtml = !showWithdrawnLink
-      ? `<div style="display:flex;justify-content:flex-end;padding:0 14px 6px;">${logBtn}</div>`
-      : '';
+    const logAloneHtml = ''; // log icon now inside award section when no withdrawn link
 
     card.innerHTML = `
       <div class="card-main">
@@ -1106,8 +1105,7 @@
         ${doneBtnHtml}
       </div>
       ${row.withdrawn ? '' : awardHtml}
-      ${withdrawnRowHtml}
-      ${logAloneHtml}`;
+      ${withdrawnRowHtml}`;
 
     return card;
   }
