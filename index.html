@@ -1041,6 +1041,9 @@
     // Determines whether withdrawn link (and log icon position) shows
     const showWithdrawnLink = row.withdrawn || !row.done;
 
+    // Log button — defined here so it can be used inside awardHtml template
+    const logBtn = `<button class="card-log-btn" onclick="openLogSheet(${row.rowIndex})" aria-label="View activity log">📋</button>`;
+
     const awardHtml = appState.awardOptions.length > 0 ? `
       <div class="award-section">
         <div class="award-label">&#127942; Award(s)</div>
@@ -1082,8 +1085,6 @@
       `<button class="done-btn${row.done ? ' active' : ''}"
                onclick="toggleDone(${row.rowIndex}, this)"
                aria-label="Mark done">${row.done ? '&#10003;' : ''}</button>`;
-
-    const logBtn = `<button class="card-log-btn" onclick="openLogSheet(${row.rowIndex})" aria-label="View activity log">📋</button>`;
 
     // When withdrawn link visible: log icon on same row (right side)
     // When done and no withdrawn link: log icon inline after awards (right side)
