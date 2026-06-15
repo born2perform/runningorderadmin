@@ -1267,12 +1267,22 @@
 
     if (undone.length > 0) {
       document.getElementById('modal-sub').textContent = 'Not ready';
+      // Build scrollable list of undone routines
+      const undoneList = undone.map(r =>
+        `<div style="padding:5px 0;border-bottom:1px solid #f5f5f5;display:flex;gap:10px;">
+          <span style="color:#999;min-width:44px;font-size:0.8rem;">${esc(r.time)}</span>
+          <span style="font-size:0.8rem;"><strong>${esc(r.school)}</strong> — ${esc(r.team)}</span>
+        </div>`
+      ).join('');
+
       document.getElementById('modal-body').innerHTML = `
         <div class="modal-warning">
-          ⚠️ <strong>${undone.length} routine${undone.length > 1 ? 's have' : ' has'} not been marked as done.</strong><br>
-          All routines must be ticked before generating the awards summary.
+          ⚠️ <strong>${undone.length} routine${undone.length > 1 ? 's have' : ' has'} not been marked as done.</strong>
         </div>
-        Please go back and mark all routines as complete, then try again, or use the button below if the competition is finished.
+        <div style="max-height:200px;overflow-y:auto;margin:12px 0;border:1px solid #f0f0f0;border-radius:6px;padding:4px 10px;">
+          ${undoneList}
+        </div>
+        <div style="font-size:0.8rem;color:#888;">Go back and tick these off, or use the button below if the competition is completely finished.</div>
       `;
       document.getElementById('modal-footer').innerHTML = `
         <button class="modal-btn modal-btn-cancel" onclick="closeModal()">Go back</button>
