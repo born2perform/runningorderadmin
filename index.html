@@ -1929,7 +1929,7 @@
 
   function renderLogEntries(entries, container) {
     if (!entries || entries.length === 0) {
-      container.innerHTML = '<div class="log-empty">No activity recorded for this routine.</div>';
+      container.innerHTML = '<div class="log-empty">No activity recorded.</div>';
       return;
     }
     const actionClass = {
@@ -1943,11 +1943,17 @@
       'ANNOUNCEMENT CLEARED':'announce'
     };
     container.innerHTML = entries.map(function(e) {
-      const cls = actionClass[e.action] || 'unticked';
+      const cls     = actionClass[e.action] || 'unticked';
+      const who     = e.school && e.team ? esc(e.school) + ' — ' + esc(e.team) : '';
+      const whoHtml = who ? '<div style="font-size:0.68rem;color:#aaa;margin-bottom:2px;">' + who + '</div>' : '';
+      const valHtml = e.value ? '<div class="log-entry-value">' + esc(e.value) + '</div>' : '';
       return '<div class="log-entry">' +
         '<div class="log-entry-time">' + esc(e.timestamp) + '</div>' +
-        '<div class="log-entry-action ' + cls + '">' + esc(e.action) + '</div>' +
-        '<div class="log-entry-value">' + esc(e.value || '') + '</div>' +
+        '<div style="flex:1;">' +
+          whoHtml +
+          '<div class="log-entry-action ' + cls + '">' + esc(e.action) + '</div>' +
+          valHtml +
+        '</div>' +
       '</div>';
     }).join('');
   }
