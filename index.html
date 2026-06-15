@@ -1882,12 +1882,16 @@
     body.innerHTML = '<div class="log-empty">Loading...</div>';
 
     try {
-      const res  = await fetch(SCRIPT_URL + '?action=getLog&rowIndex=' + rowIndex + '&t=' + Date.now());
+      const url = SCRIPT_URL + '?action=getLog&rowIndex=' + rowIndex + '&t=' + Date.now();
+      console.log('Fetching log:', url);
+      const res  = await fetch(url);
       const data = await res.json();
+      console.log('Log response:', data);
       if (data.error) throw new Error(data.error);
       renderLogEntries(data.entries, body);
     } catch(err) {
-      body.innerHTML = '<div class="log-empty">Could not load log.</div>';
+      console.error('Log load error:', err);
+      body.innerHTML = '<div class="log-empty">Could not load log: ' + err.message + '</div>';
     }
   }
 
