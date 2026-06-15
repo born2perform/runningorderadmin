@@ -1038,6 +1038,9 @@
         }).filter(Boolean)
       : [];
 
+    // Determines whether withdrawn link (and log icon position) shows
+    const showWithdrawnLink = row.withdrawn || !row.done;
+
     const awardHtml = appState.awardOptions.length > 0 ? `
       <div class="award-section">
         <div class="award-label">&#127942; Award(s)</div>
@@ -1073,8 +1076,6 @@
            Mark as withdrawn
          </button>`;
 
-    // Withdrawn link shows when not done, or always when withdrawn (for unmark)
-    const showWithdrawnLink = row.withdrawn || !row.done;
 
     // Withdrawn cards: no done button, no awards, just unmark option
     const doneBtnHtml = row.withdrawn ? '' :
