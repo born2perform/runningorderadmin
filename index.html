@@ -1074,19 +1074,20 @@
         </div>
       </div>` : '';
 
-    const withdrawnBtn = row.withdrawn
-      ? `<div class="withdrawn-wrap" style="padding:0 14px 10px;">
-           <button onclick="unmarkWithdrawn(${row.rowIndex})"
-             style="background:none;border:none;font-size:0.72rem;color:#e08080;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline;">
-             Unmark withdrawn
-           </button>
-         </div>`
-      : `<div class="withdrawn-wrap" style="padding:0 14px 10px;${row.done ? 'display:none;' : ''}">
-           <button onclick="confirmMarkWithdrawn(${row.rowIndex})"
-             style="background:none;border:none;font-size:0.72rem;color:#bbb;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline;">
-             Mark as withdrawn
-           </button>
-         </div>`;
+    const withdrawnLink = row.withdrawn
+      ? `<button onclick="unmarkWithdrawn(${row.rowIndex})"
+           style="background:none;border:none;font-size:0.72rem;color:#e08080;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline;">
+           Unmark withdrawn
+         </button>`
+      : `<button onclick="confirmMarkWithdrawn(${row.rowIndex})"
+           style="background:none;border:none;font-size:0.72rem;color:#bbb;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline;">
+           Mark as withdrawn
+         </button>`;
+
+    const withdrawnBtn = `<div class="card-log-row withdrawn-wrap" style="${row.done && !row.withdrawn ? 'display:none;' : ''}">
+      ${withdrawnLink}
+      <button class="card-log-btn" onclick="openLogSheet(${row.rowIndex})" aria-label="View activity log">📋</button>
+    </div>`;
 
     // Withdrawn cards: no done button, no awards, just unmark option
     const doneBtnHtml = row.withdrawn ? '' :
