@@ -1211,6 +1211,14 @@
     if (card) {
       card.classList.toggle('done', targetState);
       card.dataset.done = targetState ? 'true' : 'false';
+
+      // Rebuild standard cards fully — award section layout and withdrawn
+      // link visibility both depend on done state, not just CSS classes
+      if (appState.rows[rowIndex].rowType === 'standard') {
+        const container = document.getElementById('running-order');
+        const newCard = buildStandardCard(appState.rows[rowIndex]);
+        container.replaceChild(newCard, card);
+      }
     }
 
     await dispatchSave(rowIndex, { done: targetState });
