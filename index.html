@@ -418,6 +418,28 @@
       flex-shrink: 0;
     }
 
+    /* Type switcher inside live zone */
+    .ann-live-type-row {
+      display: none; gap: 6px;
+      padding: 10px 0 0;
+    }
+    .ann-live-type-btn {
+      flex: 1; padding: 7px 4px; border-radius: 8px;
+      border: 1.5px solid #e8e8e8; background: #fff;
+      font-size: 0.68rem; font-weight: 700; text-align: center;
+      cursor: pointer; font-family: inherit; color: #888;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .ann-live-type-btn.selected {
+      border-color: #1a1a1a; background: #1a1a1a; color: white;
+    }
+
+    /* Dismissible toggle inside live zone */
+    .ann-live-dismiss-row {
+      display: none; align-items: center; gap: 8px;
+      padding: 10px 0 0; font-size: 0.74rem; color: #888;
+    }
+
     /* Expiry row inside live zone */
     .ann-live-expiry-row {
       display: none; align-items: center; gap: 8px;
@@ -1662,28 +1684,44 @@
     document.getElementById('ann-sheet').classList.remove('show');
   }
 
+  let liveSelectedType = 'FYI'; // tracks type selection within live zone
+
   function updateAnnSheetState() {
-    const liveZone   = document.getElementById('ann-live-zone');
-    const indicator  = document.getElementById('ann-active-indicator');
-    const clearBtn   = document.getElementById('ann-clear-btn');
-    const activeText = document.getElementById('ann-active-text');
+    const liveZone    = document.getElementById('ann-live-zone');
+    const indicator   = document.getElementById('ann-active-indicator');
+    const clearBtn    = document.getElementById('ann-clear-btn');
+    const activeText  = document.getElementById('ann-active-text');
     const activeLabel = document.getElementById('ann-active-label');
-    const expiryRow  = document.getElementById('ann-live-expiry-row');
-    const badge      = document.getElementById('ann-fab-badge');
+    const expiryRow   = document.getElementById('ann-live-expiry-row');
+    const typeRow     = document.getElementById('ann-live-type-row');
+    const dismissRow  = document.getElementById('ann-live-dismiss-row');
+    const badge       = document.getElementById('ann-fab-badge');
 
     if (activeAnnouncement && activeAnnouncement.text) {
-      const type = (activeAnnouncement.type || 'FYI').toLowerCase();
+      const type = (activeAnnouncement.type || 'FYI').toUpperCase();
+      liveSelectedType = type;
+      const typeLower = type.toLowerCase();
       const labels = { fyi: '📢 Notice', headsup: '⚠️ Heads Up', stop: '🚨 Important' };
 
       // Show live zone
       liveZone.classList.add('visible');
 
       // Style banner exactly like customer view
-      indicator.className = 'ann-active-indicator visible ' + type;
-      activeLabel.className = 'ann-active-label ' + type;
-      activeLabel.textContent = labels[type] || '📢 Notice';
-      activeText.className = 'ann-active-text ' + type;
+      indicator.className = 'ann-active-indicator visible ' + typeLower;
+      activeLabel.className = 'ann-active-label ' + typeLower;
+      activeLabel.textContent = labels[typeLower] || '📢 Notice';
+      activeText.className = 'ann-active-text ' + typeLower;
       activeText.textContent = activeAnnouncement.text;
+
+      // Type switcher — highlight current type
+      typeRow.style.display = 'flex';
+      document.querySelectorAll('.ann-live-type-btn').forEach(function(b) {
+        b.classList.toggle('selected', b.dataset.type === type);
+      });
+
+      // Dismissible toggle — only relevant for STOP
+      dismissRow.style.display = (type === 'STOP') ? 'flex' : 'none';
+      document.getElementById('ann-live-dismissible').checked = activeAnnouncement.dismissible !== false;
 
       // Set expiry
       document.getElementById('ann-live-expiry').value = activeAnnouncement.expiry || '0';
@@ -1696,11 +1734,23 @@
     } else {
       liveZone.classList.remove('visible');
       indicator.className = 'ann-active-indicator';
+      typeRow.style.display = 'none';
+      dismissRow.style.display = 'none';
       expiryRow.style.display = 'none';
       clearBtn.classList.remove('visible');
       badge.classList.remove('visible');
       document.getElementById('ann-fab').classList.remove('active');
     }
+  }
+
+  function selectLiveType(type) {
+    liveSelectedType = type;
+    document.querySelectorAll('.ann-live-type-btn').forEach(function(b) {
+      b.classList.toggle('selected', b.dataset.type === type);
+    });
+    // Show dismissible row only when switching to STOP
+    document.getElementById('ann-live-dismiss-row').style.display =
+      (type === 'STOP') ? 'flex' : 'none';
   }
 
   function selectAnnType(type, btn) {
@@ -1830,13 +1880,23 @@
 
   async function updateExpiry() {
     if (!activeAnnouncement) return;
+
     const newExpiry = parseInt(document.getElementById('ann-live-expiry').value) || 0;
-    // Repost with same text/type but new expiry
+    const newType    = liveSelectedType || activeAnnouncement.type || 'FYI';
+    const newDismiss = newType === 'STOP'
+      ? document.getElementById('ann-live-dismissible').checked
+      : true;
+
+    // If type changed and it's now STOP with dismiss unticked, confirm first
+    if (newType === 'STOP' && !newDismiss) {
+      if (!confirm('WARNING: This announcement cannot be dismissed by parents. The running order will be blocked until you manually clear it. Are you sure?')) return;
+    }
+
     const btn = document.querySelector('.ann-live-update-btn');
     if (btn) { btn.textContent = 'Saving...'; btn.disabled = true; }
 
     var timeoutId = setTimeout(function() {
-      if (btn) { btn.textContent = 'Update expiry'; btn.disabled = false; }
+      if (btn) { btn.textContent = 'Update'; btn.disabled = false; }
       showToast('Timed out — please try again', true);
     }, 15000);
 
@@ -1846,22 +1906,25 @@
         body: JSON.stringify({
           action:      'postAnnouncement',
           text:        activeAnnouncement.text,
-          annType:     activeAnnouncement.type,
+          annType:     newType,
           expiry:      newExpiry,
-          dismissible: activeAnnouncement.dismissible !== false
+          dismissible: newDismiss
         }),
         headers: { 'Content-Type': 'text/plain' }
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      activeAnnouncement.expiry    = newExpiry;
-      activeAnnouncement.timestamp = data.timestamp;
-      showToast('Expiry updated ✓', false);
+      activeAnnouncement.expiry      = newExpiry;
+      activeAnnouncement.type        = newType;
+      activeAnnouncement.dismissible = newDismiss;
+      activeAnnouncement.timestamp   = data.timestamp;
+      updateAnnSheetState(); // refresh banner preview to reflect new type
+      showToast('Updated ✓', false);
     } catch (err) {
       showToast('Failed to update ✗', true);
     } finally {
       clearTimeout(timeoutId);
-      if (btn) { btn.textContent = 'Update expiry'; btn.disabled = false; }
+      if (btn) { btn.textContent = 'Update'; btn.disabled = false; }
     }
   }
 
@@ -2027,6 +2090,19 @@
       </div>
     </div>
 
+    <!-- Type switcher -->
+    <div class="ann-live-type-row" id="ann-live-type-row">
+      <button class="ann-live-type-btn" data-type="FYI" onclick="selectLiveType('FYI')">📢 FYI</button>
+      <button class="ann-live-type-btn" data-type="HEADSUP" onclick="selectLiveType('HEADSUP')">⚠️ Heads Up</button>
+      <button class="ann-live-type-btn" data-type="STOP" onclick="selectLiveType('STOP')">🚨 Stop</button>
+    </div>
+
+    <!-- Dismissible toggle (only relevant for STOP) -->
+    <div class="ann-live-dismiss-row" id="ann-live-dismiss-row">
+      <input type="checkbox" id="ann-live-dismissible" checked style="width:16px;height:16px;">
+      <label for="ann-live-dismissible">Allow parents to dismiss this message</label>
+    </div>
+
     <!-- Expiry update row -->
     <div class="ann-live-expiry-row" id="ann-live-expiry-row">
       <span class="ann-live-expiry-label">Auto-clear:</span>
@@ -2040,7 +2116,7 @@
         <option value="120">2 hours</option>
         <option value="480">End of day</option>
       </select>
-      <button class="ann-live-update-btn" onclick="updateExpiry()">Update expiry</button>
+      <button class="ann-live-update-btn" onclick="updateExpiry()">Update</button>
     </div>
 
     <button class="ann-clear-btn" id="ann-clear-btn" onclick="clearAnnouncement()">
