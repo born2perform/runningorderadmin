@@ -418,20 +418,29 @@
       flex-shrink: 0;
     }
 
-    /* Type switcher inside live zone */
+    /* Type switcher inside live zone — compact, icon-only, right-aligned */
     .ann-live-type-row {
-      display: none; gap: 6px;
+      display: none; gap: 6px; justify-content: flex-end;
       padding: 10px 0 0;
     }
     .ann-live-type-btn {
-      flex: 1; padding: 7px 4px; border-radius: 8px;
-      border: 1.5px solid #e8e8e8; background: #fff;
-      font-size: 0.68rem; font-weight: 700; text-align: center;
-      cursor: pointer; font-family: inherit; color: #888;
+      width: 34px; height: 34px; padding: 0; border-radius: 9px;
+      border: 1.5px solid #ececec; background: #fff;
+      font-size: 0.95rem; text-align: center; line-height: 1;
+      cursor: pointer; font-family: inherit;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0.45;
       -webkit-tap-highlight-color: transparent;
     }
-    .ann-live-type-btn.selected {
-      border-color: #1a1a1a; background: #1a1a1a; color: white;
+    .ann-live-type-btn.selected { opacity: 1; }
+    .ann-live-type-btn.selected[data-type="FYI"] {
+      border-color: #f1c232; background: #fffbeb;
+    }
+    .ann-live-type-btn.selected[data-type="HEADSUP"] {
+      border-color: #fb923c; background: #fff7ed;
+    }
+    .ann-live-type-btn.selected[data-type="STOP"] {
+      border-color: #f43f5e; background: #fff1f2;
     }
 
     /* Dismissible toggle inside live zone */
@@ -2104,11 +2113,11 @@
       </div>
     </div>
 
-    <!-- Type switcher -->
+    <!-- Type switcher — icon only -->
     <div class="ann-live-type-row" id="ann-live-type-row">
-      <button class="ann-live-type-btn" data-type="FYI" onclick="selectLiveType('FYI')">📢 FYI</button>
-      <button class="ann-live-type-btn" data-type="HEADSUP" onclick="selectLiveType('HEADSUP')">⚠️ Heads Up</button>
-      <button class="ann-live-type-btn" data-type="STOP" onclick="selectLiveType('STOP')">🚨 Stop</button>
+      <button class="ann-live-type-btn" data-type="FYI" onclick="selectLiveType('FYI')" aria-label="FYI">📢</button>
+      <button class="ann-live-type-btn" data-type="HEADSUP" onclick="selectLiveType('HEADSUP')" aria-label="Heads Up">⚠️</button>
+      <button class="ann-live-type-btn" data-type="STOP" onclick="selectLiveType('STOP')" aria-label="Stop">🚨</button>
     </div>
 
     <!-- Dismissible toggle (only relevant for STOP) -->
