@@ -882,13 +882,17 @@
 
       appState.compName = data.compName || '';
 
-      // Sync active announcement state for badge indicator
-      if (data.announcement) {
-        activeAnnouncement = data.announcement;
-      } else {
-        activeAnnouncement = null;
+      // Sync active announcement state for badge indicator —
+      // skip while a save is in flight to avoid overwriting optimistic
+      // local state with stale data from before the save completed
+      if (!announcementLocked) {
+        if (data.announcement) {
+          activeAnnouncement = data.announcement;
+        } else {
+          activeAnnouncement = null;
+        }
+        if (typeof updateAnnSheetState === 'function') updateAnnSheetState();
       }
-      if (typeof updateAnnSheetState === 'function') updateAnnSheetState();
 
       // Normalize award options — strip asterisk for storage/matching,
       // track which are individual in a separate Set
@@ -1661,6 +1665,7 @@
   // ── ANNOUNCEMENT ─────────────────────────────────────────
   let currentAnnType = 'FYI';
   let activeAnnouncement = null;
+  let announcementLocked = false; // true while a save is in flight
 
   function openAnnSheet() {
     // Always reset compose form to blank defaults
@@ -1837,6 +1842,7 @@
       postBtn.disabled = false;
       postBtn.textContent = 'Post Announcement';
       postBtn.style.opacity = '';
+      setTimeout(function() { announcementLocked = false; }, 6000);
     }
   }
 
@@ -1846,11 +1852,13 @@
     clearBtn.textContent = 'Clearing...';
     clearBtn.style.opacity = '0.6';
     clearBtn.disabled = true;
+    announcementLocked = true;
 
     var clearTimeoutId = setTimeout(function() {
       clearBtn.textContent = origText;
       clearBtn.style.opacity = '';
       clearBtn.disabled = false;
+      announcementLocked = false;
       showToast('Timed out — please try again', true);
     }, 15000);
 
@@ -1872,6 +1880,7 @@
       showToast('Failed to clear ✗', true);
     } finally {
       clearTimeout(clearTimeoutId);
+      setTimeout(function() { announcementLocked = false; }, 2000);
       clearBtn.textContent = origText;
       clearBtn.style.opacity = '';
       clearBtn.disabled = false;
@@ -1894,9 +1903,11 @@
 
     const btn = document.querySelector('.ann-live-update-btn');
     if (btn) { btn.textContent = 'Saving...'; btn.disabled = true; }
+    announcementLocked = true;
 
     var timeoutId = setTimeout(function() {
       if (btn) { btn.textContent = 'Update'; btn.disabled = false; }
+      announcementLocked = false;
       showToast('Timed out — please try again', true);
     }, 15000);
 
@@ -1925,6 +1936,9 @@
     } finally {
       clearTimeout(timeoutId);
       if (btn) { btn.textContent = 'Update'; btn.disabled = false; }
+      // Keep lock for a further 6 seconds — gives GAS time to fully
+      // commit the write before the next poll reads it back
+      setTimeout(function() { announcementLocked = false; }, 6000);
     }
   }
 
