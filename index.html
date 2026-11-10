@@ -1444,6 +1444,7 @@
         container.replaceChild(newCard, card);
       }
     }
+    renderRoomBar(); // two-room comps: update "to go" straight away
 
     await dispatchSave(rowIndex, { done: targetState });
     // Only release lock if:
