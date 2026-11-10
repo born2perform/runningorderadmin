@@ -735,6 +735,43 @@
       accent-color: #f1c232; cursor: pointer;
     }
 
+    /* ── TWO-ROOM BAR (only shown on two-room comps) ─────── */
+    .room-bar { display: flex; gap: 6px; margin-top: 10px; }
+    .room-bar:empty { display: none; }
+    .room-tab {
+      flex: 1; min-width: 0; padding: 7px 8px; border-radius: 8px;
+      border: 1px solid rgba(241,194,50,0.4); background: transparent;
+      color: #fff; cursor: pointer; text-align: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .room-tab.active { background: #f1c232; border-color: #f1c232; color: #1a1a1a; }
+    .room-tab-name {
+      display: block; font-size: 0.8rem; font-weight: 800;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .room-tab-left { display: block; font-size: 0.66rem; opacity: 0.75; margin-top: 1px; }
+    .room-status-btn {
+      flex: 0 1 38%; min-width: 0; padding: 7px 8px; border-radius: 8px;
+      border: 1px solid rgba(241,194,50,0.4); background: #1a1a1a;
+      color: #f1c232; cursor: pointer; text-align: left;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .room-status-label { display: block; font-size: 0.6rem; color: #aaa; text-transform: uppercase; letter-spacing: 0.8px; }
+    .room-status-value {
+      display: block; font-size: 0.75rem; font-weight: 700;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .status-option {
+      display: block; width: 100%; text-align: left; padding: 11px 12px;
+      margin-bottom: 6px; border-radius: 8px; border: 1px solid #e0e0e0;
+      background: #fff; color: #222; font-size: 0.9rem; cursor: pointer;
+    }
+    .status-option.current { border-color: #f1c232; background: #fff8e1; font-weight: 700; }
+    .status-custom {
+      width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px;
+      font-size: 0.9rem; color: #222; box-sizing: border-box; margin-top: 4px;
+    }
+
     /* ── AWARDS MODAL ───────────────────────────────────── */
     .modal-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,0.7);
@@ -810,6 +847,8 @@
       </div>
       <button class="awards-btn" id="awards-btn" onclick="handleAwardsBtn()">🏆 Export</button>
     </div>
+    <!-- Two-room comps only: stays empty (hidden) for normal comps -->
+    <div class="room-bar" id="room-bar"></div>
   </div>
   <div class="running-order" id="running-order"></div>
 </div>
@@ -827,8 +866,143 @@
     compName: '',
     awardOptions: [],
     rows: {},
-    renderOrder: []
+    renderOrder: [],
+    rooms: []          // two-room comps only: [{ name, status, updated }]
   };
+
+  // ── TWO ROOMS ────────────────────────────────────────────
+  // Only active when the backend sends more than one room. Each operator
+  // picks their room once; the phone remembers it.
+  let adminRoom = null;
+  let roomStatusLocked = false;
+  try { adminRoom = localStorage.getItem('b2pAdminRoom'); } catch (e) {}
+
+  const ROOM_STATUS_PRESETS = [
+    'On time',
+    'Running about 5 min behind',
+    'Running about 10 min behind',
+    'Running about 15 min behind',
+    'Running about 20 min behind',
+    'Running about 30 min behind',
+    'Running a little early',
+    'On a short break',
+    'Finished in this room'
+  ];
+
+  function isTwoRoom() { return appState.rooms.length > 1; }
+
+  function rowRoomName(row) { return row.room || (appState.rooms[0] && appState.rooms[0].name) || ''; }
+
+  function ensureAdminRoom() {
+    const names = appState.rooms.map(r => r.name);
+    if (names.indexOf(adminRoom) === -1) adminRoom = names[0];
+  }
+
+  function selectAdminRoom(name) {
+    adminRoom = name;
+    try { localStorage.setItem('b2pAdminRoom', name); } catch (e) {}
+    renderFullOrder();
+    renderRoomBar();
+    window.scrollTo(0, 0);
+  }
+
+  function renderRoomBar() {
+    const bar = document.getElementById('room-bar');
+    if (!bar) return;
+    if (!isTwoRoom()) { bar.innerHTML = ''; return; }
+    ensureAdminRoom();
+
+    const left = {};
+    appState.renderOrder.forEach(i => {
+      const r = appState.rows[i];
+      if (!r || r.rowType !== 'standard' || r.done || r.withdrawn) return;
+      const n = rowRoomName(r);
+      left[n] = (left[n] || 0) + 1;
+    });
+
+    const cur = appState.rooms.find(r => r.name === adminRoom) || {};
+    let html = '';
+    appState.rooms.forEach(r => {
+      const n = left[r.name] || 0;
+      html += '<button class="room-tab' + (r.name === adminRoom ? ' active' : '') + '" data-room="' + esc(r.name) + '">' +
+                '<span class="room-tab-name">' + esc(r.name) + '</span>' +
+                '<span class="room-tab-left">' + (n ? n + ' to go' : 'All done') + '</span>' +
+              '</button>';
+    });
+    html += '<button class="room-status-btn" onclick="openRoomStatus()">' +
+              '<span class="room-status-label">' + esc(adminRoom) + ' status</span>' +
+              '<span class="room-status-value">' + esc(cur.status || 'Not set') + '</span>' +
+            '</button>';
+    bar.innerHTML = html;
+    bar.querySelectorAll('.room-tab').forEach(b => {
+      b.addEventListener('click', () => selectAdminRoom(b.dataset.room));
+    });
+  }
+
+  function openRoomStatus() {
+    const cur = (appState.rooms.find(r => r.name === adminRoom) || {}).status || '';
+    let opts = '';
+    ROOM_STATUS_PRESETS.forEach(p => {
+      opts += '<button class="status-option' + (p === cur ? ' current' : '') + '" data-status="' + esc(p) + '">' + esc(p) + '</button>';
+    });
+    const custom = cur && ROOM_STATUS_PRESETS.indexOf(cur) === -1 ? cur : '';
+    const ov = document.createElement('div');
+    ov.className = 'modal-overlay';
+    ov.id = 'room-status-modal';
+    ov.innerHTML =
+      '<div class="modal-box">' +
+        '<div class="modal-header">' +
+          '<div class="modal-header-title">' + esc(adminRoom) + '</div>' +
+          '<div class="modal-header-sub">Parents see this under the room name</div>' +
+        '</div>' +
+        '<div class="modal-body" style="max-height:60vh;overflow-y:auto;">' + opts +
+          '<input class="status-custom" id="status-custom" maxlength="80" placeholder="Or type your own..." value="' + esc(custom) + '">' +
+        '</div>' +
+        '<div class="modal-footer">' +
+          '<button class="modal-btn modal-btn-cancel" data-act="clear">Clear</button>' +
+          '<button class="modal-btn modal-btn-cancel" data-act="cancel">Cancel</button>' +
+          '<button class="modal-btn modal-btn-confirm" data-act="save">Save</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(ov);
+
+    const close = () => ov.remove();
+    ov.addEventListener('click', e => { if (e.target === ov) close(); });
+    ov.querySelectorAll('.status-option').forEach(b => {
+      b.addEventListener('click', () => { close(); saveRoomStatus(b.dataset.status); });
+    });
+    ov.querySelector('[data-act="cancel"]').addEventListener('click', close);
+    ov.querySelector('[data-act="clear"]').addEventListener('click', () => { close(); saveRoomStatus(''); });
+    ov.querySelector('[data-act="save"]').addEventListener('click', () => {
+      const v = document.getElementById('status-custom').value.trim();
+      close();
+      if (v) saveRoomStatus(v);
+    });
+  }
+
+  async function saveRoomStatus(status) {
+    const room = adminRoom;
+    const r = appState.rooms.find(x => x.name === room);
+    if (r) { r.status = status; r.updated = status ? new Date().toISOString() : ''; }
+    roomStatusLocked = true;
+    renderRoomBar();
+    showToast('Saving status...', false);
+    try {
+      const res = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'setRoomStatus', room: room, status: status })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      showToast(status ? 'Status saved ✓' : 'Status cleared ✓', false);
+    } catch (err) {
+      console.error('Room status error:', err);
+      showToast('Status not saved, try again', true);
+    } finally {
+      roomStatusLocked = false;
+    }
+  }
 
   const rowLocked        = {};  // true while save in flight
   const awardDebounceTimers = {};
@@ -919,7 +1093,17 @@
       if (cityEl) cityEl.textContent = compParts[0] || cleanComp;
       if (dateEl) dateEl.textContent = compParts.length > 1 ? '— ' + compParts.slice(1).join(' — ') : '';
 
-      let structureChanged = forceFullRender ||
+      // Two-room comps: data.rooms is only sent when column L has room names
+      const newRooms = Array.isArray(data.rooms) ? data.rooms : [];
+      const roomKey  = newRooms.map(r => r.name).join('|');
+      const roomsChanged = roomKey !== appState.rooms.map(r => r.name).join('|');
+      if (!roomStatusLocked) appState.rooms = newRooms;
+      else appState.rooms = newRooms.map(r => {
+        const mine = appState.rooms.find(x => x.name === r.name);
+        return mine ? mine : r;
+      });
+
+      let structureChanged = forceFullRender || roomsChanged ||
         (appState.renderOrder.length !== data.rows.length);
 
       data.rows.forEach((networkRow, idx) => {
@@ -959,6 +1143,7 @@
       } else {
         reconcileDOMChanges();
       }
+      renderRoomBar();
     } catch (err) {
       if (err.name === 'AbortError') return; // expected — superseded by newer fetch
       console.error('Fetch error:', err);
@@ -971,9 +1156,13 @@
     const scrollY = window.scrollY;
     container.innerHTML = '';
 
+    const twoRoom = isTwoRoom();
+    if (twoRoom) ensureAdminRoom();
+
     appState.renderOrder.forEach(rIndex => {
       const row = appState.rows[rIndex];
       if (!row) return;
+      if (twoRoom && rowRoomName(row) !== adminRoom) return;
       if (row.rowType === 'spacer') {
         const d = document.createElement('div');
         d.className = 'spacer-row';
