@@ -199,7 +199,7 @@
 
     // Register service worker
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('running-sw.js').catch(function() {});
+      navigator.serviceWorker.register('running-sw.js', { updateViaCache: 'none' }).catch(function() {});
     }
 
     // Capture Android install prompt
