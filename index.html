@@ -750,6 +750,13 @@
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .room-tab-left { display: block; font-size: 0.66rem; opacity: 0.75; margin-top: 1px; }
+    /* Status at a glance: green on time, amber behind, blue break, grey finished */
+    .room-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
+    .st-ok    { background: #2e9e5b; }
+    .st-late  { background: #e58a00; }
+    .st-break { background: #3b7be0; }
+    .st-done  { background: #9a9a9a; }
+    .room-tab.active .room-dot { box-shadow: 0 0 0 2px #f1c232, 0 0 0 3px #1a1a1a; }
     .room-status-btn {
       flex: 0 1 38%; min-width: 0; padding: 7px 8px; border-radius: 8px;
       border: 1px solid rgba(241,194,50,0.4); background: #1a1a1a;
@@ -891,6 +898,20 @@
 
   function isTwoRoom() { return appState.rooms.length > 1; }
 
+  // Same colours as the parents' page
+  function statusClass(status) {
+    const s = (status || '').toLowerCase();
+    if (!s) return '';
+    if (s.indexOf('finished') !== -1) return 'st-done';
+    if (s.indexOf('break') !== -1 || s.indexOf('lunch') !== -1) return 'st-break';
+    if (s.indexOf('on time') !== -1 || s.indexOf('early') !== -1) return 'st-ok';
+    return 'st-late';
+  }
+  function statusDot(status) {
+    const c = statusClass(status);
+    return c ? '<span class="room-dot ' + c + '"></span>' : '';
+  }
+
   function rowRoomName(row) { return row.room || (appState.rooms[0] && appState.rooms[0].name) || ''; }
 
   function ensureAdminRoom() {
@@ -925,13 +946,13 @@
     appState.rooms.forEach(r => {
       const n = left[r.name] || 0;
       html += '<button class="room-tab' + (r.name === adminRoom ? ' active' : '') + '" data-room="' + esc(r.name) + '">' +
-                '<span class="room-tab-name">' + esc(r.name) + '</span>' +
+                '<span class="room-tab-name">' + statusDot(r.status) + esc(r.name) + '</span>' +
                 '<span class="room-tab-left">' + (n ? n + ' to go' : 'All done') + '</span>' +
               '</button>';
     });
     html += '<button class="room-status-btn" onclick="openRoomStatus()">' +
               '<span class="room-status-label">' + esc(adminRoom) + ' status</span>' +
-              '<span class="room-status-value">' + esc(cur.status || 'Not set') + '</span>' +
+              '<span class="room-status-value">' + statusDot(cur.status) + esc(cur.status || 'Not set') + '</span>' +
             '</button>';
     bar.innerHTML = html;
     bar.querySelectorAll('.room-tab').forEach(b => {
