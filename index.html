@@ -150,6 +150,10 @@
       min-width: 46px; flex-shrink: 0; line-height: 1.3;
     }
     .row-card.done .card-time { color: #9aa0a6; }
+    /* Hold to untick: stop iPhone/Android long-press menus and text selection */
+    .done-btn, .sp-check { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+    .card-no { font-size: 0.72rem; font-weight: 700; color: #9aa0a6; }
+    .is-now { box-shadow: inset 6px 0 0 var(--gold); }
 
     .card-info { flex: 1; min-width: 0; }
     .card-school { font-size: 0.8rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -175,7 +179,7 @@
     }
     .award-pills { display: flex; flex-wrap: wrap; gap: 6px; }
     .award-pill {
-      padding: 6px 12px; border-radius: 16px; font-size: 0.82rem; font-weight: 600;
+      padding: 10px 14px; min-height: 40px; border-radius: 20px; font-size: 0.85rem; font-weight: 600;
       border: 1.5px solid var(--border); background: #f8f9fa; color: var(--text-dark);
       cursor: pointer; transition: all 0.15s; -webkit-tap-highlight-color: transparent;
       touch-action: manipulation; user-select: none;
@@ -667,6 +671,69 @@
     .saving-toast.show { opacity: 1; }
     .saving-toast.error { background: #d93025; }
 
+    /* ── UNSAVED CARD / CONNECTION DOT / KEY PROMPT ────── */
+    .unsaved { outline: 3px dashed #f29900; outline-offset: -3px; }
+    .conn-dot {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 12px; height: 12px; border-radius: 50%; vertical-align: middle;
+      font-size: 9px; font-weight: 900; color: #fff; line-height: 1;
+    }
+    .conn-dot.ok   { background: #34a853; }
+    .conn-dot.busy { background: transparent; border: 2.5px solid #f29900; border-right-color: transparent;
+                     width: 9px; height: 9px; animation: connSpin 0.8s linear infinite; }
+    .conn-dot.bad  { background: #d93025; width: 16px; height: 16px; font-size: 11px;
+                     animation: connPulse 1s ease-in-out infinite; }
+    @keyframes connSpin  { to { transform: rotate(360deg); } }
+    @keyframes connPulse { 50% { transform: scale(1.25); } }
+    .key-prompt {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 500;
+      display: none; align-items: center; justify-content: center; padding: 24px;
+    }
+    .key-prompt.show { display: flex; }
+    .key-box { background: #fff; border-radius: 14px; padding: 22px; width: 100%; max-width: 340px; }
+    .key-box h3 { margin: 0 0 12px; font-size: 1.05rem; }
+    .key-box input {
+      width: 100%; box-sizing: border-box; padding: 12px; font-size: 1rem;
+      border: 1.5px solid var(--border); border-radius: 10px; margin-bottom: 12px; font-family: inherit;
+    }
+    .key-box button {
+      width: 100%; padding: 12px; border: none; border-radius: 10px; background: var(--gold);
+      font-weight: 800; font-size: 1rem; font-family: inherit; cursor: pointer;
+    }
+
+    /* ── UNDO TOAST (shown when an award is added) ─────── */
+    .undo-toast {
+      position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 14px;
+      background: #222; color: #fff; padding: 10px 10px 10px 18px; border-radius: 24px;
+      font-size: 0.85rem; font-weight: 600; opacity: 0; pointer-events: none;
+      transition: opacity 0.2s; z-index: 1000; max-width: calc(100vw - 32px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    }
+    .undo-toast.show { opacity: 1; pointer-events: all; }
+    .undo-toast-msg { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .undo-toast-btn {
+      background: var(--gold); color: #000; border: none; border-radius: 16px;
+      padding: 7px 14px; font-weight: 800; font-size: 0.8rem; cursor: pointer;
+      font-family: inherit; flex-shrink: 0; -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ── JUMP TO NOW ────────────────────────────────────── */
+    .jump-now {
+      position: fixed; left: 16px; bottom: 28px; z-index: 150;
+      display: none; align-items: center; gap: 6px;
+      background: var(--gold); color: #000; border: none; border-radius: 24px;
+      padding: 12px 18px; font-weight: 800; font-size: 0.9rem; font-family: inherit;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.3); cursor: pointer;
+      -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+    }
+    .jump-now.show { display: flex; }
+    .row-card.now-flash, .now-flash { animation: nowFlash 1.6s ease-out; }
+    @keyframes nowFlash {
+      0%   { box-shadow: 0 0 0 4px var(--gold); }
+      100% { box-shadow: 0 0 0 0 rgba(241,194,50,0); }
+    }
+
     /* ── AWARDS BUTTON (header) ─────────────────────────── */
     .awards-btn {
       display: flex; align-items: center; gap: 4px;
@@ -849,7 +916,7 @@
         <div class="header-comp">
           <span id="comp-name-city" class="header-comp-city">Loading...</span>
           <span id="comp-name-date" class="header-comp-date"></span>
-          <span class="sync-dot" style="margin-left:6px;"></span>
+          <span id="conn-dot" class="conn-dot ok" style="margin-left:6px;" aria-label="Connection"></span>
         </div>
       </div>
       <button class="awards-btn" id="awards-btn" onclick="handleAwardsBtn()">🏆 Export</button>
@@ -861,6 +928,19 @@
 </div>
 
 <div class="saving-toast" id="toast"></div>
+<div class="undo-toast" id="undo-toast">
+  <span class="undo-toast-msg" id="undo-toast-msg"></span>
+  <button class="undo-toast-btn" id="undo-toast-btn">Undo</button>
+</div>
+<div class="key-prompt" id="key-prompt">
+  <div class="key-box">
+    <h3>🔑 Enter the admin key</h3>
+    <input id="key-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <button id="key-save">Save</button>
+    <button id="key-later" style="margin-top:8px;background:#eee;">Not now</button>
+  </div>
+</div>
+<button class="jump-now" id="jump-now" onclick="jumpToNow(true)" aria-label="Jump to the current routine"><span id="jump-now-arrow">&#8595;</span> Now</button>
 
 <script>
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwREmPTbjTbICoycCjMksAzKQJx9yU7M2Y9QP1z8E8WULTk9iDu4nTVENSjtBper3stOw/exec';
@@ -881,6 +961,8 @@
   // Only active when the backend sends more than one room. Each operator
   // picks their room once; the phone remembers it.
   let adminRoom = null;
+  let suppressTickUntil = 0;
+  let didInitialJump = false;
   let roomStatusLocked = false;
   try { adminRoom = localStorage.getItem('b2pAdminRoom'); } catch (e) {}
 
@@ -924,7 +1006,8 @@
     try { localStorage.setItem('b2pAdminRoom', name); } catch (e) {}
     renderFullOrder();
     renderRoomBar();
-    window.scrollTo(0, 0);
+    jumpToNow(false);
+    queueJumpBtn();
   }
 
   function renderRoomBar() {
@@ -1025,7 +1108,17 @@
     }
   }
 
-  const rowLocked        = {};  // true while save in flight
+  const pendingSaves     = {};  // number of queued saves per row
+  const rowLockFlags     = {};
+  // A row counts as locked while it has a flag set OR saves still queued,
+  // so a refresh can never overwrite a change that hasn't reached the sheet.
+  const rowLocked        = new Proxy(rowLockFlags, {
+    get: function(t, k) { return !!t[k] || (pendingSaves[k] || 0) > 0; }
+  });
+  const rowIdentity      = {};  // school/team the sheet has for each row
+  const awardHoldTimers  = {};
+  const lastSaveAt       = {};  // when each row last queued or finished a save
+  const serverAwardText  = {};  // awards this phone last saw in the sheet, per row
   const awardDebounceTimers = {};
   const awardLockHold    = {};  // true during 12s post-award-save hold period
   let fetchController    = null; // AbortController for in-flight fetches
@@ -1066,6 +1159,9 @@
         fetchData(true).then(() => {
           document.getElementById('loading-screen').classList.add('hidden');
           document.getElementById('app').classList.add('visible');
+          // Open the list at the current routine, not the top
+          didInitialJump = true;
+          requestAnimationFrame(() => { jumpToNow(false); queueJumpBtn(); });
           setTimeout(() => document.getElementById('loading-screen').style.display = 'none', 500);
         });
       }, 400);
@@ -1074,12 +1170,18 @@
 
   // ── FETCH & RECONCILE ────────────────────────────────────
   async function fetchData(forceFullRender = false) {
-    // Abort any in-flight fetch — prevents stale responses overwriting fresh state
+    // A routine refresh waits for the one already running instead of
+    // cancelling it, so slow Wi-Fi can't leave the list blank. A forced
+    // refresh replaces it. Any refresh gives up after 25 seconds.
+    if (fetchController && !forceFullRender) return;
     if (fetchController) fetchController.abort();
-    fetchController = new AbortController();
+    const myController = new AbortController();
+    fetchController = myController;
+    const fetchStartedAt = performance.now(); // phone clock changes can't affect it
+    const fetchTimeout = setTimeout(function() { myController.abort(); }, 25000);
     try {
       const res  = await fetch(SCRIPT_URL + '?t=' + Date.now(), {
-        signal: fetchController.signal
+        signal: myController.signal
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -1112,7 +1214,7 @@
       const cityEl = document.getElementById('comp-name-city');
       const dateEl = document.getElementById('comp-name-date');
       if (cityEl) cityEl.textContent = compParts[0] || cleanComp;
-      if (dateEl) dateEl.textContent = compParts.length > 1 ? '— ' + compParts.slice(1).join(' — ') : '';
+      if (dateEl) dateEl.textContent = compParts.length > 1 ? compParts.slice(1).join(', ') : '';
 
       // Two-room comps: data.rooms is only sent when column L has room names
       const newRooms = Array.isArray(data.rooms) ? data.rooms : [];
@@ -1134,8 +1236,32 @@
           structureChanged = true;
         }
 
-        // Only update state if no save is currently in flight for this row
-        if (!rowLocked[rIndex]) {
+        // Only update state if no save is in flight for this row, and this
+        // refresh started after its last save (an older refresh is stale)
+        if (!rowLocked[rIndex] && !((lastSaveAt[rIndex] || 0) >= fetchStartedAt)) {
+          // Remember what the sheet has on this row, for the wrong-row check,
+          // only when the row's data is actually taken from this refresh,
+          // so the record always matches what the card shows
+          if (networkRow.rowType === 'spacer') {
+            delete rowIdentity[rIndex];
+          } else if (networkRow.sheetSchool !== undefined) {
+            rowIdentity[rIndex] = { school: networkRow.sheetSchool, team: networkRow.sheetTeam };
+          } else if (networkRow.rowType === 'standard' && !networkRow.withdrawn) {
+            rowIdentity[rIndex] = { school: networkRow.school || '', team: networkRow.team || '' };
+          } else {
+            delete rowIdentity[rIndex];
+          }
+          // A line retyped or moved in the sheet: redraw so the card matches
+          const prevRow = appState.rows[rIndex];
+          if (!structureChanged && prevRow && (
+                prevRow.rowType !== networkRow.rowType || prevRow.school !== networkRow.school ||
+                prevRow.team !== networkRow.team || prevRow.time !== networkRow.time ||
+                (prevRow.room || '') !== (networkRow.room || '') ||
+                (prevRow.routineType || '') !== (networkRow.routineType || '') ||
+                (prevRow.routineNo || '') !== (networkRow.routineNo || '') ||
+                !!prevRow.withdrawn !== !!networkRow.withdrawn)) {
+            structureChanged = true;
+          }
           // Merge col F (clean awards) and col G (individual recipients)
           // back into combined awardText format used internally by the app
           if (networkRow.rowType === 'standard' && networkRow.awardText) {
@@ -1155,6 +1281,7 @@
             }).join(',');
           }
           appState.rows[rIndex] = networkRow;
+          serverAwardText[rIndex] = networkRow.awardText || '';
         }
       });
 
@@ -1165,9 +1292,17 @@
         reconcileDOMChanges();
       }
       renderRoomBar();
+      queueJumpBtn();
+      refreshUnsavedMarks();
+      restorePendingSaves();
+      lastFetchOk = true;
+      updateConnDot();
     } catch (err) {
-      if (err.name === 'AbortError') return; // expected — superseded by newer fetch
-      console.error('Fetch error:', err);
+      if (err.name !== 'AbortError') console.error('Fetch error:', err);
+      if (fetchController === myController) { lastFetchOk = false; updateConnDot(); }
+    } finally {
+      clearTimeout(fetchTimeout);
+      if (fetchController === myController) fetchController = null;
     }
   }
 
@@ -1298,6 +1433,8 @@
             const isIndividual = appState.individualAwards && appState.individualAwards.has(opt);
 
             const isSelected = selectedAwards.some(a => a === opt || a.startsWith(opt + ':'));
+            // Hide awards this routine can't get (still shown if somehow selected, so it can be removed)
+            if (!isSelected && !awardAllowed(row, opt)) return '';
             const indEntry   = row.awardText ? row.awardText.split(',').map(a => a.trim())
                                  .find(a => a.startsWith(opt + ':')) : null;
             const hasInd     = !!indEntry;
@@ -1344,7 +1481,7 @@
 
     card.innerHTML = `
       <div class="card-main">
-        <div class="card-time">${esc(row.time)}</div>
+        <div class="card-time">${esc(row.time)}${row.routineNo ? '<div class="card-no">No. ' + esc(row.routineNo) + '</div>' : ''}</div>
         <div class="card-info">
           <div class="card-school">${esc(row.school)}</div>
           <div class="card-team">${esc(row.team)}</div>
@@ -1381,7 +1518,9 @@
 
   // ── INTERACTIONS ─────────────────────────────────────────
   async function confirmMarkWithdrawn(rowIndex) {
-    if (!confirm('Mark this routine as withdrawn? It will display as Withdrawn and recede in the list. You can undo this.')) return;
+    const wRow = appState.rows[rowIndex] || {};
+    if (!confirm('Withdraw ' + [wRow.team, wRow.school].filter(Boolean).join(', ') + '? It will show as Withdrawn and its awards are cleared. You can undo this.')) return;
+    flushAwardSave(rowIndex);
     rowLocked[rowIndex] = true;
 
     // Update appState — store originals, set display to Withdrawn
@@ -1401,34 +1540,18 @@
       container.replaceChild(newCard, oldCard);
     }
 
-    try {
-      const res = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'markWithdrawn', rowIndex: rowIndex }),
-        headers: { 'Content-Type': 'text/plain' }
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      showToast('Marked as withdrawn ✓', false);
-    } catch (err) {
-      console.error('Withdrawn failed:', err);
-      showToast('Failed ✗', true);
-    } finally {
-      rowLocked[rowIndex] = false;
-    }
+    // Goes through the save queue, after any award still waiting to save
+    const ok = await dispatchSave(rowIndex, { action: 'markWithdrawn' });
+    if (ok) showToast('Marked as withdrawn ✓', false);
+    rowLocked[rowIndex] = false;
   }
 
   async function unmarkWithdrawn(rowIndex) {
     if (!confirm('Unmark this routine as withdrawn? It will be restored to its original state.')) return;
 
     try {
-      const res = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'unmarkWithdrawn', rowIndex: rowIndex }),
-        headers: { 'Content-Type': 'text/plain' }
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
+      const ok = await dispatchSave(rowIndex, { action: 'unmarkWithdrawn' });
+      if (!ok) throw new Error('not saved');
       showToast('Withdrawal reversed ✓', false);
       // Release lock and force full re-fetch so original names come back from sheet
       rowLocked[rowIndex] = false;
@@ -1441,13 +1564,21 @@
     }
   }
 
-  async function toggleDone(rowIndex, btn) {
-    // Clear any pending award save for this row to avoid concurrent writes
-    clearTimeout(awardDebounceTimers[rowIndex]);
-    delete awardDebounceTimers[rowIndex];
+  async function toggleDone(rowIndex, btn, fromHold) {
+    if (Date.now() < suppressTickUntil) return;
+    // Unticking needs a press and hold, so a stray tap can't untick a routine
+    if (appState.rows[rowIndex].done && !fromHold) {
+      showToast('Hold the tick to untick', false);
+      return;
+    }
+    // Send any award waiting to go first (never cancel it)
+    flushAwardSave(rowIndex);
     rowLocked[rowIndex] = true;
 
     const targetState = !appState.rows[rowIndex].done;
+    if (btn && !btn.isConnected) {
+      btn = document.querySelector('[data-row-index="' + rowIndex + '"] [onclick^="toggleDone"]') || btn;
+    }
     appState.rows[rowIndex].done = targetState;
 
     btn.classList.toggle('active', targetState);
@@ -1479,14 +1610,105 @@
     }
   }
 
+  // ── AWARD SAFETY ─────────────────────────────────────────
+  // Wild Cards are for Experienced teams only; Top Notch Novice for Novice teams only.
+  // Uses the routine type from column P (Tim's Type column). If the type is blank, nothing is hidden.
+  function awardAllowed(row, opt) {
+    const t = (row.routineType || '').toLowerCase();
+    if (!t) return true;
+    const o = opt.toLowerCase().trim();
+    // Tim's types: "Experienced", "Novice" (teams), "Spotlight" or "Solo"/"Duet" etc.
+    if (o === 'wild card')        return t.indexOf('experienced') !== -1;
+    if (o === 'top notch novice') return t.indexOf('novice') !== -1;
+    return true;
+  }
+
+  // Ignore award taps that happen while the list is scrolling (or just after),
+  // which is how stray awards get added when scrolling fast.
+  let lastScrollAt = 0;
+  window.addEventListener('scroll', function() { lastScrollAt = Date.now(); }, { passive: true });
+  function scrollingNow() { return Date.now() - lastScrollAt < 700; }
+
+  let undoTimer = null;
+  function showUndo(msg, onUndo) {
+    const t   = document.getElementById('undo-toast');
+    const btn = document.getElementById('undo-toast-btn');
+    document.getElementById('undo-toast-msg').textContent = msg;
+    btn.onclick = function() {
+      clearTimeout(undoTimer);
+      t.classList.remove('show');
+      onUndo();
+    };
+    // Sits over the left of the header (logo and title), never over a card,
+    // the Export button or the room tabs
+    const inner = document.querySelector('.header-inner');
+    const exp   = document.getElementById('awards-btn');
+    const ib = inner ? inner.getBoundingClientRect() : { top: 0, height: headerHeight() };
+    t.style.left = '8px';
+    t.style.transform = 'none';
+    t.style.maxWidth = ((exp ? exp.getBoundingClientRect().left : window.innerWidth) - 16) + 'px';
+    t.style.top = Math.max(4, Math.round(ib.top + (ib.height - 44) / 2)) + 'px';
+    t.classList.add('show');
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(function() { t.classList.remove('show'); }, 6000);
+  }
+
+  function addTeamAward(rowIndex, award) {
+    rowLocked[rowIndex] = true;
+    const pill = document.querySelector('.award-pill[data-rowindex="' + rowIndex + '"][data-award="' + CSS.escape(award) + '"]');
+    if (pill) pill.classList.add('selected');
+    const list = (appState.rows[rowIndex].awardText || '').split(',').map(a => a.trim())
+      .filter(a => a && a !== award && !a.startsWith(award + ':'));
+    list.push(award);
+    appState.rows[rowIndex].awardText = list.join(',');
+    scheduleAwardSave(rowIndex);
+  }
+
+  function removeTeamAward(rowIndex, award) {
+    rowLocked[rowIndex] = true;
+    const pill = document.querySelector('.award-pill[data-rowindex="' + rowIndex + '"][data-award="' + CSS.escape(award) + '"]');
+    if (pill) pill.classList.remove('selected', 'has-individual');
+    const current = appState.rows[rowIndex].awardText || '';
+    appState.rows[rowIndex].awardText = current.split(',').map(a => a.trim())
+      .filter(a => a && !a.startsWith(award + ':') && a !== award)
+      .join(',');
+    scheduleAwardSave(rowIndex);
+  }
+
+  // Tim's types: "Solo" (studio file) or "Spotlight" (main file, which also
+  // covers duets and trios, so those are spotted by "&" or "and" in the name)
+  function isSoloRow(row) {
+    const t = (row.routineType || '').toLowerCase().trim();
+    const name = (row.team || '').trim();
+    if (!name) return false;
+    if (t === 'solo') return true;
+    if (t === 'spotlight') return !/&|,|\band\b|\+/i.test(name);
+    return false;
+  }
+
   function toggleAward(rowIndex, btn) {
+    if (scrollingNow()) return;
     const award      = btn.dataset.award;
     const isIndiv    = appState.individualAwards && appState.individualAwards.has(award);
     const isSelected = btn.classList.contains('selected');
 
     if (isIndiv) {
-      // Individual award — always open bottom sheet
-      // Lock row while sheet is open so refresh doesn't interfere
+      const row = appState.rows[rowIndex];
+      // A solo can only go to the dancer, so fill in their name and save
+      if (!isSelected && isSoloRow(row)) {
+        rowLocked[rowIndex] = true;
+        btn.classList.add('selected', 'has-individual');
+        const others = (row.awardText || '').split(',').map(a => a.trim())
+          .filter(a => a && !a.startsWith(award + ':') && a !== award);
+        others.push(award + ':' + row.team.replace(/[,;:]/g, ' ').trim());
+        row.awardText = others.join(',');
+        scheduleAwardSave(rowIndex);
+        showUndo('🏆 ' + award + ': ' + row.team + ', ' + row.school, function() {
+          removeTeamAward(rowIndex, award);
+        });
+        return;
+      }
+      // Otherwise open the name box. Lock row while it's open.
       rowLocked[rowIndex] = true;
       openBs(rowIndex, btn);
       return;
@@ -1494,6 +1716,10 @@
 
     if (isSelected) {
       // ── Deselect team award ────────────────────────────────
+      const rDes = appState.rows[rowIndex];
+      showUndo('Removed ' + award + ': ' + [rDes.team, rDes.school].filter(Boolean).join(', '), function() {
+        addTeamAward(rowIndex, award);
+      });
       rowLocked[rowIndex] = true;
       btn.classList.remove('selected', 'has-individual');
       const current = appState.rows[rowIndex].awardText || '';
@@ -1513,47 +1739,383 @@
       others.push(award);
       appState.rows[rowIndex].awardText = others.join(',');
       scheduleAwardSave(rowIndex);
+      const r = appState.rows[rowIndex];
+      showUndo('🏆 ' + award + ': ' + [r.team, r.school].filter(Boolean).join(', '), function() {
+        removeTeamAward(rowIndex, award);
+      });
     }
   }
 
   function scheduleAwardSave(rowIndex) {
+    rowLocked[rowIndex] = true;
     clearTimeout(awardDebounceTimers[rowIndex]);
-    awardDebounceTimers[rowIndex] = setTimeout(async () => {
-      const savedAwardText = appState.rows[rowIndex].awardText;
-      await dispatchSave(rowIndex, { awardText: savedAwardText });
-      // Keep row locked for 12 seconds after save — GAS needs time to write
-      // col G before the next refresh can merge F+G back into awardText.
-      // Also preserve local awardText so merge logic can't overwrite it.
-      if (!awardDebounceTimers[rowIndex]) {
-        awardLockHold[rowIndex] = true;
-        setTimeout(() => {
-          awardLockHold[rowIndex] = false;
-          rowLocked[rowIndex] = false;
-        }, 12000);
-      }
-      delete awardDebounceTimers[rowIndex];
-    }, 500);
+    awardDebounceTimers[rowIndex] = setTimeout(function() { flushAwardSave(rowIndex); }, 500);
   }
 
-  async function dispatchSave(rowIndex, payload) {
-    showToast('Saving...', false);
-    try {
-      const res = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({ rowIndex, ...payload }),
-        headers: { 'Content-Type': 'text/plain' }
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      showToast('Saved \u2713', false);
-    } catch (err) {
-      console.error('Save failed:', err);
-      showToast('Save failed \u2717', true);
-      // Do NOT release lock here — scheduleAwardSave handles lock release
-      // Releasing here would allow a refresh to overwrite local state
-      // before col G is written, causing has-individual to be stripped
-    }
+  // Sends a waiting award save straight away (used before ticking or exporting)
+  function flushAwardSave(rowIndex) {
+    if (!awardDebounceTimers[rowIndex]) return;
+    clearTimeout(awardDebounceTimers[rowIndex]);
+    delete awardDebounceTimers[rowIndex];
+    const savedAwardText = appState.rows[rowIndex].awardText || '';
+    // Send what this phone last knew the sheet had, so the server only
+    // applies this phone's own changes and keeps another phone's awards
+    const prevAwardText = serverAwardText[rowIndex] !== undefined ? serverAwardText[rowIndex] : null;
+    serverAwardText[rowIndex] = savedAwardText;
+    const awardPayload = { awardText: savedAwardText };
+    if (prevAwardText !== null) awardPayload.prevAwardText = prevAwardText;
+    dispatchSave(rowIndex, awardPayload).then(function(ok) {
+      if (!ok) return; // refused save: the row was unlocked and refreshed already
+      // Short hold so a refresh that started before the save can't undo it
+      awardLockHold[rowIndex] = true;
+      clearTimeout(awardHoldTimers[rowIndex]);
+      awardHoldTimers[rowIndex] = setTimeout(function() {
+        awardLockHold[rowIndex] = false;
+        if (!awardDebounceTimers[rowIndex] && bsRowIndex !== rowIndex) rowLockFlags[rowIndex] = false;
+      }, 5000);
+    });
   }
+
+  function flushAllAwardSaves() {
+    Object.keys(awardDebounceTimers).forEach(function(r) { flushAwardSave(parseInt(r, 10)); });
+  }
+
+  // ── SAVE QUEUE ───────────────────────────────────────────
+  // Every change goes into one queue and is sent one at a time, in order.
+  // If it fails (no signal, server busy) it is retried until it gets through.
+  // The card shows a dashed amber border until its changes are saved.
+  const saveQueue = [];
+  let queueRunning = false;
+  let lastFetchOk  = true;
+  let saveFailing  = false;
+
+  function sleep(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
+
+  function dispatchSave(rowIndex, payload) {
+    // Fix the routine's identity now, at the moment it was tapped
+    const row = appState.rows[rowIndex];
+    const id  = rowIdentity[rowIndex];
+    payload = Object.assign({}, payload);
+    if (payload._restored) { delete payload._restored; }  // keeps the identity it was tapped with
+    else if (id) { payload.school = id.school; payload.team = id.team; }
+    else { delete payload.school; delete payload.team; }
+    lastSaveAt[rowIndex] = performance.now();
+    return new Promise(function(resolve) {
+      saveQueue.push({ rowIndex: rowIndex, payload: payload, resolve: resolve, tries: 0 });
+      pendingSaves[rowIndex] = (pendingSaves[rowIndex] || 0) + 1;
+      persistQueue();
+      markUnsaved(rowIndex);
+      updateConnDot();
+      runSaveQueue();
+    });
+  }
+
+  // The queue is also kept on the phone, so closing or reloading the app
+  // doesn't lose changes that haven't reached the sheet yet
+  function persistQueue() {
+    try {
+      if (!saveQueue.length) { localStorage.removeItem('b2pPendingSaves'); return; }
+      localStorage.setItem('b2pPendingSaves', JSON.stringify({
+        comp: appState.compName, at: Date.now(),
+        items: saveQueue.map(function(q) { return { rowIndex: q.rowIndex, payload: q.payload }; })
+      }));
+    } catch (e) {}
+  }
+  let restoredQueue = false;
+  function restorePendingSaves() {
+    if (restoredQueue) return;
+    restoredQueue = true;
+    try {
+      const raw = localStorage.getItem('b2pPendingSaves');
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      localStorage.removeItem('b2pPendingSaves');
+      if (!saved || saved.comp !== appState.compName || Date.now() - saved.at > 4 * 3600 * 1000) return;
+      (saved.items || []).forEach(function(q) {
+        const row = appState.rows[q.rowIndex];
+        if (row && row.rowType !== 'spacer') {
+          if (typeof q.payload.done !== 'undefined') row.done = q.payload.done;
+          if (typeof q.payload.awardText !== 'undefined') row.awardText = q.payload.awardText;
+          if (q.payload.action === 'markWithdrawn') {
+            row.withdrawn = true; row.done = false; row.awardText = '';
+            row.school = 'Withdrawn'; row.team = 'Withdrawn';
+          }
+        }
+        const p = Object.assign({}, q.payload, { _restored: true });
+        dispatchSave(q.rowIndex, p);
+      });
+      if ((saved.items || []).length) renderFullOrder();
+      if ((saved.items || []).length) showToast('Sending ' + saved.items.length + ' unsaved change' + (saved.items.length > 1 ? 's' : ''), false);
+    } catch (e) {}
+  }
+
+  function finishSave(item, ok) {
+    saveQueue.shift();
+    lastSaveAt[item.rowIndex] = performance.now();
+    pendingSaves[item.rowIndex] = Math.max(0, (pendingSaves[item.rowIndex] || 1) - 1);
+    persistQueue();
+    markUnsaved(item.rowIndex);
+    item.resolve(ok);
+  }
+
+  async function runSaveQueue() {
+    if (queueRunning) return;
+    queueRunning = true;
+    while (saveQueue.length) {
+      const item = saveQueue[0];
+      showToast(item.tries ? 'Retrying save...' : 'Saving...', false);
+      let outcome = 'NETWORK';
+      const ctrl = new AbortController();
+      const timer = setTimeout(function() { ctrl.abort(); }, 45000);
+      try {
+        const res = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          body: JSON.stringify(Object.assign({ rowIndex: item.rowIndex }, item.payload)),
+          headers: { 'Content-Type': 'text/plain' },
+          signal: ctrl.signal
+        });
+        const data = await res.json();
+        outcome = data.error ? String(data.error) : 'OK';
+      } catch (err) {
+        outcome = 'NETWORK';
+      }
+      clearTimeout(timer);
+
+      if (outcome === 'OK') {
+        saveFailing = false;
+        finishSave(item, true);
+        showToast('Saved ✓', false);
+      } else if (outcome === 'ROW_MOVED' || outcome === 'BAD_ROW') {
+        // The running order changed under us: don't write to the wrong routine
+        rowLockFlags[item.rowIndex] = false;
+        awardLockHold[item.rowIndex] = false;
+        clearTimeout(awardHoldTimers[item.rowIndex]);
+        finishSave(item, false);
+        delete lastSaveAt[item.rowIndex];
+        showToast('Running order changed. NOT saved: ' + saveLabel(item) + '. Check and do it again.', true);
+        fetchData(true);
+      } else if (['NETWORK', 'BUSY', 'BAD_KEY'].indexOf(outcome) === -1 &&
+                 !/too many|timed? ?out|timeout|try again|temporar|unavailable|busy|lock|quota|rate|service|internal error/i.test(outcome) &&
+                 item.tries >= 2) {
+        // An error retrying won't fix: drop it so other saves aren't stuck
+        rowLockFlags[item.rowIndex] = false;
+        awardLockHold[item.rowIndex] = false;
+        clearTimeout(awardHoldTimers[item.rowIndex]);
+        finishSave(item, false);
+        delete lastSaveAt[item.rowIndex];
+        showToast('NOT saved: ' + saveLabel(item) + '. Please do it again.', true);
+        fetchData(true);
+      } else {
+        item.tries++;
+        saveFailing = true;
+        updateConnDot();
+        showToast('Not saved yet. Retrying...', true);
+        if (outcome === 'BAD_KEY') await askForKey();
+        else await sleep(Math.min(2000 * item.tries, 15000));
+      }
+      updateConnDot();
+    }
+    queueRunning = false;
+    saveFailing = false;
+    updateConnDot();
+  }
+
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden') flushAllAwardSaves();
+    else fetchData(false);
+  });
+  window.addEventListener('pagehide', function() { flushAllAwardSaves(); });
+
+  function saveLabel(item) {
+    const p = item.payload || {}, r = appState.rows[item.rowIndex] || {};
+    const t = p.team !== undefined ? [p.team, p.school] : [r.team, r.school];
+    return t.filter(Boolean).join(', ') || 'a change';
+  }
+
+  // Resolves once nothing is waiting to be saved
+  async function waitForSaves() {
+    flushAllAwardSaves();
+    while (saveQueue.length || Object.keys(awardDebounceTimers).length) await sleep(300);
+  }
+
+  function markUnsaved(rowIndex) {
+    const el = document.querySelector('#running-order [data-row-index="' + rowIndex + '"]');
+    if (el) el.classList.toggle('unsaved', (pendingSaves[rowIndex] || 0) > 0);
+  }
+  function refreshUnsavedMarks() {
+    Object.keys(pendingSaves).forEach(function(r) { markUnsaved(r); });
+  }
+
+  // ── CONNECTION DOT ───────────────────────────────────────
+  // Green: all saved. Amber ring: saving. Red with "!": can't reach the sheet.
+  function updateConnDot() {
+    const d = document.getElementById('conn-dot');
+    if (!d) return;
+    let state = 'ok';
+    if (saveFailing || !lastFetchOk) state = 'bad';
+    else if (saveQueue.length) state = 'busy';
+    d.className = 'conn-dot ' + state;
+    d.textContent = state === 'bad' ? '!' : '';
+  }
+
+  // ── ADMIN KEY ────────────────────────────────────────────
+  // Entered once per phone (or opened from the QR link with ?key=...).
+  function getAdminKey() {
+    try { return localStorage.getItem('b2pAdminKey') || ''; } catch (e) { return ''; }
+  }
+  (function readKeyFromLink() {
+    try {
+      const u = new URL(window.location.href);
+      const k = u.searchParams.get('key');
+      if (k) {
+        localStorage.setItem('b2pAdminKey', k.trim());
+        u.searchParams.delete('key');
+        history.replaceState(null, '', u.pathname + (u.search || '') + u.hash);
+      }
+    } catch (e) {}
+  })();
+  let keyPromptOpen = null;
+  function askForKey() {
+    if (keyPromptOpen) return keyPromptOpen;
+    keyPromptOpen = new Promise(function(resolve) {
+      const wrap = document.getElementById('key-prompt');
+      const inp  = document.getElementById('key-input');
+      inp.value = '';
+      wrap.classList.add('show');
+      setTimeout(function() { inp.focus(); }, 200);
+      document.getElementById('key-later').onclick = function() {
+        wrap.classList.remove('show');
+        keyPromptOpen = null;
+        setTimeout(resolve, 15000); // ask again on the next failed save
+      };
+      document.getElementById('key-save').onclick = function() {
+        const v = inp.value.trim();
+        if (!v) return;
+        try { localStorage.setItem('b2pAdminKey', v); } catch (e) {}
+        wrap.classList.remove('show');
+        keyPromptOpen = null;
+        resolve();
+      };
+    });
+    return keyPromptOpen;
+  }
+
+  // Adds the key, and the routine's school and team, to every change sent to
+  // the sheet, so the server can refuse strangers and wrong-row saves.
+  const realFetch = window.fetch.bind(window);
+  window.fetch = function(url, opts) {
+    if (typeof url === 'string' && url.indexOf(SCRIPT_URL) === 0) {
+      if (opts && opts.method === 'POST' && typeof opts.body === 'string') {
+        try {
+          const b = JSON.parse(opts.body);
+          b.key = getAdminKey();
+          opts = Object.assign({}, opts, { body: JSON.stringify(b) });
+        } catch (e) {}
+      } else if (url.indexOf('action=getLog') !== -1) {
+        url += '&key=' + encodeURIComponent(getAdminKey());
+      }
+    }
+    return realFetch(url, opts).then(function(res) {
+      if (typeof url === 'string' && url.indexOf(SCRIPT_URL) === 0) {
+        res.clone().json().then(function(d) {
+          if (d && d.error === 'BAD_KEY' && !(opts && opts.method === 'POST' && saveQueue.length)) askForKey();
+        }).catch(function() {});
+      }
+      return res;
+    });
+  };
+
+  // ── HOLD TO UNTICK ───────────────────────────────────────
+  (function setupHoldToUntick() {
+    let holdTimer = null;
+    function cancel() { clearTimeout(holdTimer); holdTimer = null; }
+    document.addEventListener('pointerdown', function(e) {
+      const b = e.target.closest && e.target.closest('[onclick^="toggleDone"]');
+      if (!b) return;
+      const card = b.closest('[data-row-index]');
+      if (!card) return;
+      const rIndex = parseInt(card.dataset.rowIndex, 10);
+      if (!appState.rows[rIndex] || !appState.rows[rIndex].done) return;
+      cancel();
+      holdTimer = setTimeout(function() {
+        holdTimer = null;
+        if (navigator.vibrate) { try { navigator.vibrate(30); } catch (err) {} }
+        toggleDone(rIndex, b, true);
+        suppressTickUntil = Date.now() + 1000; // swallow the click that follows the hold
+      }, 600);
+    }, { passive: true });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(ev) {
+      document.addEventListener(ev, cancel, { passive: true });
+    });
+    window.addEventListener('scroll', cancel, { passive: true });
+  })();
+
+  // ── JUMP TO NOW ──────────────────────────────────────────
+  // "Now" = the first routine (or awards/break line) in this room that isn't
+  // ticked done or withdrawn.
+  // Returns { el, prevEl }: prevEl is the line just before it (usually the
+  // routine that has just finished), kept in view because awards often go on
+  // straight after a routine is ticked done.
+  // "Now" is the first line after the last ticked one, so a missed tick
+  // earlier, or a break nobody ticks, doesn't pin it hours back.
+  function currentRowInfo() {
+    const twoRoom = isTwoRoom();
+    const lines = [];
+    for (const rIndex of appState.renderOrder) {
+      const row = appState.rows[rIndex];
+      if (!row || row.rowType === 'spacer') continue;
+      if (twoRoom && rowRoomName(row) !== adminRoom) continue;
+      lines.push(row);
+    }
+    let lastDone = -1;
+    lines.forEach(function(row, i) { if (row.done) lastDone = i; });
+    const elFor = function(row) {
+      return row ? document.querySelector('#running-order [data-row-index="' + row.rowIndex + '"]') : null;
+    };
+    for (let i = lastDone + 1; i < lines.length; i++) {
+      if (!lines[i].withdrawn) return { el: elFor(lines[i]), prevEl: lastDone >= 0 ? elFor(lines[lastDone]) : null };
+    }
+    return { el: null, prevEl: null };
+  }
+  function currentRowEl() { return currentRowInfo().el; }
+
+  function headerHeight() {
+    const h = document.querySelector('.app-header');
+    return h ? h.offsetHeight : 0;
+  }
+
+  function jumpToNow(smooth) {
+    const info = currentRowInfo();
+    const el = info.el;
+    if (!el) return;
+    const anchor = info.prevEl || el;
+    const top = anchor.getBoundingClientRect().top + window.scrollY - headerHeight() - 10;
+    window.scrollTo({ top: Math.max(0, top), behavior: smooth ? 'smooth' : 'auto' });
+    el.classList.remove('now-flash');
+    void el.offsetWidth;
+    el.classList.add('now-flash');
+  }
+
+  // Show the Now button only when the current routine is off screen,
+  // with the arrow pointing the way to it.
+  let jumpRaf = null;
+  function updateJumpBtn() {
+    jumpRaf = null;
+    const btn = document.getElementById('jump-now');
+    if (!btn) return;
+    const el = currentRowEl();
+    document.querySelectorAll('#running-order .is-now').forEach(function(x) { if (x !== el) x.classList.remove('is-now'); });
+    if (el) el.classList.add('is-now');
+    if (!el) { btn.classList.remove('show'); return; }
+    const r = el.getBoundingClientRect();
+    const above = r.bottom < headerHeight();
+    const below = r.top > window.innerHeight;
+    btn.classList.toggle('show', above || below);
+    document.getElementById('jump-now-arrow').innerHTML = above ? '&#8593;' : '&#8595;';
+  }
+  function queueJumpBtn() { if (!jumpRaf) jumpRaf = requestAnimationFrame(updateJumpBtn); }
+  window.addEventListener('scroll', queueJumpBtn, { passive: true });
+  window.addEventListener('resize', queueJumpBtn);
 
   // ── TOAST ────────────────────────────────────────────────
   let toastTimer;
@@ -1562,7 +2124,7 @@
     t.textContent = msg;
     t.className = 'saving-toast show' + (isError ? ' error' : '');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
+    toastTimer = setTimeout(() => t.classList.remove('show'), isError ? 6000 : 2000);
   }
 
   function esc(str) {
@@ -1613,7 +2175,9 @@
     `;
   }
 
+  let exporting = false;
   function handleAwardsBtn() {
+    if (exporting) return;
     // Always fully reset modal to clean state before showing
     resetModal();
 
@@ -1622,7 +2186,7 @@
       .map(i => appState.rows[i])
       .filter(r => r && r.rowType === 'standard');
 
-    const undone = standardRows.filter(r => !r.done);
+    const undone = standardRows.filter(r => !r.done && !r.withdrawn);
 
     if (undone.length > 0) {
       document.getElementById('modal-sub').textContent = 'Not ready';
@@ -1630,7 +2194,7 @@
       const undoneList = undone.map(r =>
         `<div style="padding:5px 0;border-bottom:1px solid #f5f5f5;display:flex;gap:10px;">
           <span style="color:#999;min-width:44px;font-size:0.8rem;">${esc(r.time)}</span>
-          <span style="font-size:0.8rem;"><strong>${esc(r.school)}</strong> — ${esc(r.team)}</span>
+          <span style="font-size:0.8rem;"><strong>${esc(r.school)}</strong>, ${esc(r.team)}</span>
         </div>`
       ).join('');
 
@@ -1662,7 +2226,7 @@
 
     const standardRows = appState.renderOrder
       .map(i => appState.rows[i])
-      .filter(r => r && r.rowType === 'standard' && !r.done);
+      .filter(r => r && r.rowType === 'standard' && !r.done && !r.withdrawn);
 
     if (standardRows.length === 0) {
       setTimeout(() => handleAwardsBtn(), 200);
@@ -1714,8 +2278,15 @@
     const saveToDrive   = document.getElementById('opt-drive').checked;
     const updateMaster  = document.getElementById('opt-masterlog').checked;
 
+    if (exporting) return;
+    exporting = true;
     closeModal();
     const btn = document.getElementById('awards-btn');
+    btn.disabled = true;
+    if (saveQueue.length || Object.keys(awardDebounceTimers).length) {
+      showToast('Saving first...', false);
+      await waitForSaves();
+    }
     btn.classList.add('generating');
     btn.innerHTML = '⏳ Exporting<span class="export-dots"></span>';
     btn.disabled = true;
@@ -1736,10 +2307,10 @@
           <div style="font-size:2.5rem;margin-bottom:12px;">🏆</div>
           <div style="font-weight:700;font-size:1rem;margin-bottom:8px;">Awards summary generated!</div>
           <div style="font-size:0.85rem;color:#666;margin-bottom:16px;">${data.awardCount} award${data.awardCount !== 1 ? 's' : ''} recorded for ${data.compName}</div>
-          <a href="${data.folderUrl}" target="_blank"
+          ${data.folderUrl ? `<a href="${data.folderUrl}" target="_blank"
              style="display:inline-block;background:#f1c232;color:#3d2900;padding:10px 24px;border-radius:4px;font-weight:700;font-size:0.85rem;text-decoration:none;">
             View Drive Folder →
-          </a>
+          </a>` : ''}
         </div>
       `;
       document.getElementById('modal-footer').innerHTML = `
@@ -1762,6 +2333,7 @@
       `;
       document.getElementById('awards-modal').classList.remove('hidden');
     } finally {
+      exporting = false;
       btn.classList.remove('generating');
       btn.innerHTML = '🏆 Export';
       btn.disabled = false;
@@ -1773,7 +2345,7 @@
   closeModal = function() {
     _origCloseModal();
     const btn = document.getElementById('awards-btn');
-    if (btn) { btn.disabled = false; btn.classList.remove('generating'); btn.innerHTML = '🏆 Export'; }
+    if (btn && !exporting) { btn.disabled = false; btn.classList.remove('generating'); btn.innerHTML = '🏆 Export'; }
   };
 
   // Close modal on overlay tap — wrapped in DOMContentLoaded to ensure element exists
@@ -1802,7 +2374,16 @@
     const existing = parts.find(p => p.startsWith(bsAward + ':'));
     const names = existing ? existing.slice(bsAward.length + 1).split(';') : [];
 
-    document.getElementById('bs-award-label').textContent = bsAward;
+    const bsRow = appState.rows[rowIndex] || {};
+    document.getElementById('bs-award-label').textContent =
+      bsAward + ': ' + [bsRow.team, bsRow.school].filter(Boolean).join(', ');
+    // Duets and trios: offer the dancers' names, to keep or edit
+    if (!names.length && /spotlight|duet|trio/i.test(bsRow.routineType || '') && /&|\band\b/i.test(bsRow.team || '')) {
+      const dancers = bsRow.team.split(/\s*(?:&|\band\b)\s*/i).filter(Boolean);
+      // Pre-fill every dancer; staff delete whoever didn't get it
+      if (dancers.length) names.push(dancers[0]);
+      if (dancers.length > 1) names.push(dancers.slice(1).join(' & '));
+    }
     document.getElementById('bs-name1').value = names[0] || '';
     document.getElementById('bs-name2').value = names[1] || '';
     document.getElementById('bs-second-wrap').style.display = names[1] ? 'block' : 'none';
@@ -1822,6 +2403,7 @@
     if (cancelled && bsRowIndex !== null) {
       rowLocked[bsRowIndex] = false;
     }
+    bsRowIndex = null;
   }
 
   function showSecondName() {
@@ -1831,11 +2413,18 @@
   }
 
   function bsConfirm() {
-    const name1 = document.getElementById('bs-name1').value.trim();
-    const name2 = document.getElementById('bs-name2').value.trim();
+    // Commas, colons and semicolons separate awards and names, so a typed
+    // "Amy, Bella" becomes "Amy & Bella" rather than a phantom award
+    const cleanName = function(v) {
+      return v.replace(/\s*[,;]\s*/g, ' & ').replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
+    };
+    const name1 = cleanName(document.getElementById('bs-name1').value);
+    const name2 = cleanName(document.getElementById('bs-name2').value);
     if (bsBtn === null || bsRowIndex === null) { closeBs(true); return; }
+    const rowIndexNow = bsRowIndex;
 
-    closeBs(false); // don't unlock yet — scheduleAwardSave handles unlock
+    closeBs(false); // don't unlock yet, scheduleAwardSave handles unlock
+    bsRowIndex = rowIndexNow;
 
     // Re-query the pill from DOM — bsBtn may be stale if card was rebuilt
     const liveCard = document.querySelector('[data-row-index="' + bsRowIndex + '"]');
@@ -1862,13 +2451,16 @@
     }
 
     appState.rows[bsRowIndex].awardText = others.join(',');
-    // rowLocked already true from toggleAward — scheduleAwardSave will unlock after save
+    // rowLocked already true from toggleAward, scheduleAwardSave will unlock after save
     scheduleAwardSave(bsRowIndex);
+    bsRowIndex = null;
   }
 
   function bsDeselect() {
     if (!bsBtn || bsRowIndex === null) { closeBs(true); return; }
-    closeBs(false); // don't unlock yet — scheduleAwardSave handles it
+    const rowIndexNow = bsRowIndex;
+    closeBs(false); // don't unlock yet, scheduleAwardSave handles it
+    bsRowIndex = rowIndexNow;
 
     bsBtn.classList.remove('selected', 'has-individual');
     const current = appState.rows[bsRowIndex].awardText || '';
@@ -1877,6 +2469,7 @@
       .join(',');
     appState.rows[bsRowIndex].awardText = updated;
     scheduleAwardSave(bsRowIndex);
+    bsRowIndex = null;
   }
 
   // Individual awards open bottom sheet via toggleAward (asterisk detection)
@@ -2030,7 +2623,7 @@
       postBtn.disabled = false;
       postBtn.textContent = 'Post Announcement';
       postBtn.style.opacity = '';
-      showToast('Timed out — please try again', true);
+      showToast('Timed out. Please try again.', true);
     }, 15000);
 
     try {
@@ -2079,7 +2672,7 @@
       clearBtn.style.opacity = '';
       clearBtn.disabled = false;
       announcementLocked = false;
-      showToast('Timed out — please try again', true);
+      showToast('Timed out. Please try again.', true);
     }, 15000);
 
     try {
@@ -2128,7 +2721,7 @@
     var timeoutId = setTimeout(function() {
       if (btn) { btn.textContent = 'Update'; btn.disabled = false; }
       announcementLocked = false;
-      showToast('Timed out — please try again', true);
+      showToast('Timed out. Please try again.', true);
     }, 15000);
 
     try {
@@ -2175,7 +2768,7 @@
   function openLogSheet(rowIndex) {
     logRowIndex = rowIndex;
     const row = appState.rows[rowIndex];
-    const title = row ? esc(row.school) + ' — ' + esc(row.team) : 'Activity Log';
+    const title = row ? esc(row.school) + ', ' + esc(row.team) : 'Activity Log';
     document.getElementById('log-sheet-title').textContent = title;
     document.getElementById('log-full-btn').style.display = 'block';
     loadRoutineLog(rowIndex);
@@ -2225,7 +2818,7 @@
       backBtn.onclick = function() {
         document.getElementById('log-sheet-title').textContent =
           appState.rows[logRowIndex]
-            ? esc(appState.rows[logRowIndex].school) + ' — ' + esc(appState.rows[logRowIndex].team)
+            ? esc(appState.rows[logRowIndex].school) + ', ' + esc(appState.rows[logRowIndex].team)
             : 'Activity Log';
         document.getElementById('log-full-btn').style.display = 'block';
         body.removeChild(backBtn);
@@ -2254,7 +2847,7 @@
     };
     container.innerHTML = entries.map(function(e) {
       const cls     = actionClass[e.action] || 'unticked';
-      const who     = e.school && e.team ? esc(e.school) + ' — ' + esc(e.team) : '';
+      const who     = e.school && e.team ? esc(e.school) + ', ' + esc(e.team) : '';
       const whoHtml = who ? '<div style="font-size:0.68rem;color:#aaa;margin-bottom:2px;">' + who + '</div>' : '';
       const valHtml = e.value ? '<div class="log-entry-value">' + esc(e.value) + '</div>' : '';
       return '<div class="log-entry">' +
@@ -2382,8 +2975,8 @@
   <div class="ann-presets">
     <button class="ann-preset-btn" onclick="usePreset('Running approx 15 mins ahead ⏩', 'HEADSUP')">⏩ 15 mins ahead</button>
     <button class="ann-preset-btn" onclick="usePreset('Running approx 15 mins behind ⏪', 'HEADSUP')">⏪ 15 mins behind</button>
-    <button class="ann-preset-btn" onclick="usePreset('Short delay — please bear with us 🙏', 'HEADSUP')">🙏 Short delay</button>
-    <button class="ann-preset-btn" onclick="usePreset('Show temporarily suspended — please await further updates', 'STOP')">🚨 Suspended</button>
+    <button class="ann-preset-btn" onclick="usePreset('Short delay, please bear with us 🙏', 'HEADSUP')">🙏 Short delay</button>
+    <button class="ann-preset-btn" onclick="usePreset('Show temporarily suspended. Please wait for further updates.', 'STOP')">🚨 Suspended</button>
     <button class="ann-preset-btn" onclick="usePreset('Now back on schedule ✅', 'FYI')">✅ Back on schedule</button>
     <button class="ann-preset-btn" onclick="usePreset('Show paused for toilet break 🚻', 'HEADSUP')">🚽 Toilet break</button>
   </div>
