@@ -159,6 +159,10 @@
       width: 32px; height: 32px; border-radius: 50%; border: none; background: #e8e8e8;
       color: #555; font-size: 0.85rem; font-weight: 800; cursor: pointer; -webkit-tap-highlight-color: transparent;
     }
+    .card-chev { display: inline-block; font-size: 0.9rem; color: #9aa0a6; transition: transform 0.15s; line-height: 0.6; }
+    .card-details { display: none; margin-top: 4px; font-size: 0.8rem; color: #555; line-height: 1.45; }
+    .card-info.open .card-details { display: block; }
+    .card-info.open .card-chev { transform: rotate(180deg); }
     .card-no { font-size: 0.72rem; font-weight: 700; color: #9aa0a6; }
     .is-now { box-shadow: inset 6px 0 0 var(--gold); }
 
@@ -1490,15 +1494,17 @@
     card.innerHTML = `
       <div class="card-main">
         <div class="card-time">${esc(row.time)}${row.routineNo ? '<div class="card-no">No. ' + esc(row.routineNo) + '</div>' : ''}</div>
-        <div class="card-info">
-          <div class="card-school">${esc(row.school)}</div>
+        <div class="card-info" ${hasDetails(row) ? 'onclick="toggleDetails(this)"' : ''}>
+          <div class="card-school">${esc(row.school)}${hasDetails(row) ? ' <span class="card-chev">&#8964;</span>' : ''}</div>
           <div class="card-team">${esc(row.team)}</div>
+          ${hasDetails(row) ? '<div class="card-details">' + detailText(row) + '</div>' : ''}
         </div>
         ${doneBtnHtml}
       </div>
       ${row.withdrawn ? '' : awardHtml}
       ${withdrawnRowHtml}`;
 
+    if (openDetails[row.rowIndex]) { const ci = card.querySelector('.card-info'); if (ci) ci.classList.add('open'); }
     return card;
   }
 
@@ -1685,6 +1691,20 @@
 
   // Tim's types: "Solo" (studio file) or "Spotlight" (main file, which also
   // covers duets and trios, so those are spotted by "&" or "and" in the name)
+  // Routine details (from Tim's file) shown when the name is tapped
+  function hasDetails(row) {
+    return !!(row.routineType || row.category || row.ageGroup);
+  }
+  function detailText(row) {
+    return [row.routineType, row.category, row.ageGroup].filter(Boolean).map(esc).join('<br>');
+  }
+  const openDetails = {};
+  function toggleDetails(el) {
+    el.classList.toggle('open');
+    const card = el.closest('[data-row-index]');
+    if (card) openDetails[card.dataset.rowIndex] = el.classList.contains('open');
+  }
+
   function isSoloRow(row) {
     const t = (row.routineType || '').toLowerCase().trim();
     const name = (row.team || '').trim();
