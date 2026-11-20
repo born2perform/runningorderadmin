@@ -152,6 +152,13 @@
     .row-card.done .card-time { color: #9aa0a6; }
     /* Hold to untick: stop iPhone/Android long-press menus and text selection */
     .done-btn, .sp-check { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+    .bs-clear-wrap { position: relative; display: block; margin-bottom: 8px; }
+    .bs-clear-wrap .bs-name-input { padding-right: 46px; box-sizing: border-box; width: 100%; margin-bottom: 0; display: block; }
+    .bs-clear {
+      position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+      width: 32px; height: 32px; border-radius: 50%; border: none; background: #e8e8e8;
+      color: #555; font-size: 0.85rem; font-weight: 800; cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
     .card-no { font-size: 0.72rem; font-weight: 700; color: #9aa0a6; }
     .is-now { box-shadow: inset 6px 0 0 var(--gold); }
 
@@ -721,9 +728,10 @@
     /* ── JUMP TO NOW ────────────────────────────────────── */
     .jump-now {
       position: fixed; left: 16px; bottom: 28px; z-index: 150;
-      display: none; align-items: center; gap: 6px;
-      background: var(--gold); color: #000; border: none; border-radius: 24px;
-      padding: 12px 18px; font-weight: 800; font-size: 0.9rem; font-family: inherit;
+      display: none; align-items: center; justify-content: center;
+      width: 54px; height: 54px; padding: 0;
+      background: var(--gold); color: #000; border: none; border-radius: 50%;
+      font-weight: 900; font-size: 1.5rem; font-family: inherit;
       box-shadow: 0 4px 14px rgba(0,0,0,0.3); cursor: pointer;
       -webkit-tap-highlight-color: transparent; touch-action: manipulation;
     }
@@ -940,7 +948,7 @@
     <button id="key-later" style="margin-top:8px;background:#eee;">Not now</button>
   </div>
 </div>
-<button class="jump-now" id="jump-now" onclick="jumpToNow(true)" aria-label="Jump to the current routine"><span id="jump-now-arrow">&#8595;</span> Now</button>
+<button class="jump-now" id="jump-now" onclick="jumpToNow(true)" aria-label="Jump to the next routine"><span id="jump-now-arrow">&#8595;</span></button>
 
 <script>
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwREmPTbjTbICoycCjMksAzKQJx9yU7M2Y9QP1z8E8WULTk9iDu4nTVENSjtBper3stOw/exec';
@@ -2107,10 +2115,10 @@
     document.querySelectorAll('#running-order .is-now').forEach(function(x) { if (x !== el) x.classList.remove('is-now'); });
     if (el) el.classList.add('is-now');
     if (!el) { btn.classList.remove('show'); return; }
+    // Always there while the day is running; the arrow points to the routine
     const r = el.getBoundingClientRect();
     const above = r.bottom < headerHeight();
-    const below = r.top > window.innerHeight;
-    btn.classList.toggle('show', above || below);
+    btn.classList.add('show');
     document.getElementById('jump-now-arrow').innerHTML = above ? '&#8593;' : '&#8595;';
   }
   function queueJumpBtn() { if (!jumpRaf) jumpRaf = requestAnimationFrame(updateJumpBtn); }
@@ -2875,9 +2883,9 @@
   </div>
   <div class="bottom-sheet-body">
     <div class="bs-label">Recipient name</div>
-    <input type="text" class="bs-name-input" id="bs-name1" placeholder="Enter name..." autocorrect="off" autocapitalize="words" spellcheck="false">
+    <span class="bs-clear-wrap"><input type="text" class="bs-name-input" id="bs-name1" placeholder="Enter name..." autocorrect="off" autocapitalize="words" spellcheck="false"><button type="button" class="bs-clear" aria-label="Clear" onclick="var i=document.getElementById('bs-name1');i.value='';i.focus();">&#10005;</button></span>
     <div class="bs-second-name" id="bs-second-wrap">
-      <input type="text" class="bs-name-input" id="bs-name2" placeholder="Second recipient (rare)..." autocorrect="off" autocapitalize="words" spellcheck="false">
+      <span class="bs-clear-wrap"><input type="text" class="bs-name-input" id="bs-name2" placeholder="Second recipient (rare)..." autocorrect="off" autocapitalize="words" spellcheck="false"><button type="button" class="bs-clear" aria-label="Clear" onclick="var i=document.getElementById('bs-name2');i.value='';i.focus();">&#10005;</button></span>
     </div>
     <span class="bs-add-second" id="bs-add-second" onclick="showSecondName()">+ Add second recipient</span>
   </div>
