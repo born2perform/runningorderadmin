@@ -159,7 +159,9 @@
       width: 32px; height: 32px; border-radius: 50%; border: none; background: #e8e8e8;
       color: #555; font-size: 0.85rem; font-weight: 800; cursor: pointer; -webkit-tap-highlight-color: transparent;
     }
-    .card-chev { display: inline-block; font-size: 0.9rem; color: #9aa0a6; transition: transform 0.15s; line-height: 0.6; }
+    .card-team-line { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .card-team-line .card-team { min-width: 0; }
+    .card-chev { flex-shrink: 0; font-size: 1.1rem; font-weight: 700; color: #9aa0a6; transition: transform 0.15s; line-height: 1; margin-top: -6px; }
     .card-details { display: none; margin-top: 4px; font-size: 0.8rem; color: #555; line-height: 1.45; }
     .card-info.open .card-details { display: block; }
     .card-info.open .card-chev { transform: rotate(180deg); }
@@ -1495,8 +1497,8 @@
       <div class="card-main">
         <div class="card-time">${esc(row.time)}${row.routineNo ? '<div class="card-no">No. ' + esc(row.routineNo) + '</div>' : ''}</div>
         <div class="card-info" ${hasDetails(row) ? 'onclick="toggleDetails(this)"' : ''}>
-          <div class="card-school">${esc(row.school)}${hasDetails(row) ? ' <span class="card-chev">&#8964;</span>' : ''}</div>
-          <div class="card-team">${esc(row.team)}</div>
+          <div class="card-school">${esc(row.school)}</div>
+          <div class="card-team-line"><div class="card-team">${esc(row.team)}</div>${hasDetails(row) ? '<span class="card-chev">&#8964;</span>' : ''}</div>
           ${hasDetails(row) ? '<div class="card-details">' + detailText(row) + '</div>' : ''}
         </div>
         ${doneBtnHtml}
