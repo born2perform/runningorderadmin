@@ -284,7 +284,33 @@
       padding: 14px 16px; display: flex; align-items: center; gap: 12px;
     }
     .sp-time  { font-size: 0.85rem; font-weight: 700; opacity: 0.85; min-width: 46px; flex-shrink: 0; }
-    .sp-label { font-size: 0.95rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; flex: 1; }
+    .sp-label { font-size: 0.95rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; flex: 1; min-width: 0; }
+    .do-btn {
+      display: inline-block; margin-top: 10px; padding: 10px 14px; border-radius: 20px; border: none;
+      background: #fff; color: #000; font-weight: 800; font-size: 0.85rem; font-family: inherit;
+      text-transform: none; letter-spacing: 0; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    }
+    .do-result { margin-top: 8px; text-transform: none; letter-spacing: 0; font-size: 0.9rem; line-height: 1.6; }
+    .do-prize { display: inline-block; margin-left: 6px; padding: 0 8px; border-radius: 10px; background: #000; color: #f1c232; font-size: 0.75rem; font-weight: 900; white-space: nowrap; }
+    .do-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .do-sheet { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 600; display: none; align-items: flex-end; }
+    .do-sheet.show { display: flex; }
+    .do-box { background: #fff; width: 100%; max-height: 85vh; overflow-y: auto; border-radius: 16px 16px 0 0; padding: 18px 16px 24px; box-sizing: border-box; }
+    .do-box h3 { margin: 0 0 4px; font-size: 1.05rem; color: #111; text-transform: none; letter-spacing: 0; }
+    .do-hint { font-size: 0.8rem; color: #777; margin-bottom: 12px; }
+    .do-team {
+      display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box; text-align: left;
+      padding: 12px; margin-bottom: 8px; border-radius: 10px; border: 1.5px solid #ddd; background: #fff;
+      font-family: inherit; font-size: 0.95rem; cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    .do-team.placed { border-color: var(--gold); background: #fff8e0; }
+    .do-team .do-place { width: 64px; flex-shrink: 0; font-weight: 900; font-size: 1rem; white-space: nowrap; color: #111; }
+    .do-team small { display: block; color: #777; font-size: 0.78rem; }
+    .do-add { background: none; border: none; color: #4a86e8; text-decoration: underline; font-size: 0.85rem; padding: 6px 0 12px; cursor: pointer; font-family: inherit; }
+    .do-actions { display: flex; gap: 10px; margin-top: 8px; }
+    .do-actions button { flex: 1; padding: 13px; border-radius: 10px; border: none; font-weight: 800; font-size: 0.95rem; font-family: inherit; cursor: pointer; }
+    .do-save { background: var(--gold); }
+    .do-cancel { background: #eee; }
     .sp-check {
       display: flex; align-items: center; justify-content: center;
       width: 42px; height: 42px; border-radius: 50%;
@@ -946,6 +972,19 @@
   <span class="undo-toast-msg" id="undo-toast-msg"></span>
   <button class="undo-toast-btn" id="undo-toast-btn">Undo</button>
 </div>
+<div class="do-sheet" id="do-sheet" onclick="if (event.target === this) closeDanceOff()">
+  <div class="do-box">
+    <h3>🏆 Wild Card dance off</h3>
+    <div class="do-hint">Tap the teams in order: 1st, then 2nd, then 3rd. Tap again to remove.</div>
+    <div id="do-list"></div>
+    <button class="do-add" id="do-add" onclick="showDanceOffOthers()">+ Add a team that's missing</button>
+    <div id="do-others"></div>
+    <div class="do-actions">
+      <button class="do-cancel" onclick="closeDanceOff()">Cancel</button>
+      <button class="do-save" onclick="saveDanceOff()">Save</button>
+    </div>
+  </div>
+</div>
 <div class="key-prompt" id="key-prompt">
   <div class="key-box">
     <h3>🔑 Enter the admin key</h3>
@@ -1273,7 +1312,8 @@
                 (prevRow.room || '') !== (networkRow.room || '') ||
                 (prevRow.routineType || '') !== (networkRow.routineType || '') ||
                 (prevRow.routineNo || '') !== (networkRow.routineNo || '') ||
-                !!prevRow.withdrawn !== !!networkRow.withdrawn)) {
+                !!prevRow.withdrawn !== !!networkRow.withdrawn ||
+                JSON.stringify(prevRow.danceOff || []) !== JSON.stringify(networkRow.danceOff || []))) {
             structureChanged = true;
           }
           // Merge col F (clean awards) and col G (individual recipients)
@@ -1522,9 +1562,11 @@
     }
     div.dataset.rowIndex = row.rowIndex;
 
+    const isDO = isDanceOffLine(row);
+    if (isDO) div.classList.add('has-danceoff');
     div.innerHTML = `
       <div class="sp-time">${esc(row.time)}</div>
-      <div class="sp-label">${esc(row.school || row.team || '')}</div>
+      <div class="sp-label">${esc(row.school || row.team || '')}${isDO ? danceOffBlock(row) : ''}</div>
       <button class="sp-check${row.done ? ' active' : ''}"
               onclick="toggleDone(${row.rowIndex}, this)"
               aria-label="Mark done">${row.done ? '&#10003;' : ''}</button>`;
@@ -2054,6 +2096,123 @@
       return res;
     });
   };
+
+  // ── WILD CARD DANCE OFF ──────────────────────────────────
+  // Recorded on the "... Wildcard and Final Awards" line: 1st (cash prize), 2nd, 3rd
+  const MEDALS = ['🥇', '🥈', '🥉'];
+  function isDanceOffLine(row) {
+    const t = (row.school || row.team || '').toLowerCase();
+    return row.rowType !== 'standard' && /wild ?card/.test(t) && /final|award/.test(t);
+  }
+  function danceOffBlock(row) {
+    const places = row.danceOff || [];
+    let html = '';
+    if (places.length) {
+      html += '<div class="do-result">' + places.map(function(p, i) {
+        return '<div class="do-line">' + MEDALS[i] + ' ' + (i === 0 ? '<span class="do-prize">£ prize</span> ' : '') +
+               esc(p.team) + (p.school ? ', ' + esc(p.school) : '') + '</div>';
+      }).join('') + '</div>';
+    }
+    html += '<button class="do-btn" onclick="openDanceOff(' + row.rowIndex + ')">🏆 ' +
+            (places.length ? 'Change dance off result' : 'Dance off result') + '</button>';
+    return html;
+  }
+
+  // Teams in this line's session: after the previous dance off line, same room
+  function danceOffSession(lineIndex) {
+    const order = appState.renderOrder;
+    const pos = order.indexOf(lineIndex);
+    const lineRow = appState.rows[lineIndex];
+    const room = isTwoRoom() ? rowRoomName(lineRow) : null;
+    const teams = [];
+    for (let i = pos - 1; i >= 0; i--) {
+      const r = appState.rows[order[i]];
+      if (!r) continue;
+      if (room !== null && rowRoomName(r) !== room) continue;
+      if (isDanceOffLine(r)) break;
+      if (r.rowType === 'standard' && !r.withdrawn) teams.unshift(r);
+    }
+    return teams;
+  }
+  function hasWildCard(r) {
+    return (r.awardText || '').split(',').some(function(a) { return a.trim().split(':')[0] === 'Wild Card'; });
+  }
+
+  let doLine = null, doPlaces = [], doExtra = [];
+  function openDanceOff(lineIndex) {
+    doLine = lineIndex;
+    doPlaces = ((appState.rows[lineIndex] || {}).danceOff || []).map(function(p) { return p.rowIndex; });
+    doExtra = doPlaces.filter(function(ri) { const r = appState.rows[ri]; return r && !hasWildCard(r); });
+    document.getElementById('do-others').innerHTML = '';
+    document.getElementById('do-add').style.display = '';
+    renderDanceOff();
+    document.getElementById('do-sheet').classList.add('show');
+  }
+  function closeDanceOff() {
+    document.getElementById('do-sheet').classList.remove('show');
+    doLine = null;
+  }
+  function doTeamBtn(r, inOthers) {
+    const i = doPlaces.indexOf(r.rowIndex);
+    return '<button class="do-team' + (i >= 0 ? ' placed' : '') + '" onclick="' +
+      (inOthers ? 'addDanceOffTeam(' + r.rowIndex + ')' : 'tapDanceOff(' + r.rowIndex + ')') + '">' +
+      '<span class="do-place">' + (i >= 0 ? MEDALS[i] + ' ' + (i + 1) + (['st', 'nd', 'rd'][i]) : '') + '</span>' +
+      '<span>' + esc(r.team) + (r.routineNo ? ' (No. ' + esc(r.routineNo) + ')' : '') + '<small>' + esc(r.school) + '</small></span></button>';
+  }
+  function renderDanceOff() {
+    const session = danceOffSession(doLine);
+    const shown = session.filter(function(r) { return hasWildCard(r) || doExtra.indexOf(r.rowIndex) !== -1 || doPlaces.indexOf(r.rowIndex) !== -1; });
+    document.getElementById('do-list').innerHTML = shown.length
+      ? shown.map(function(r) { return doTeamBtn(r, false); }).join('')
+      : '<div class="do-hint">No Wild Cards have been given in this session yet.</div>';
+  }
+  function tapDanceOff(ri) {
+    const i = doPlaces.indexOf(ri);
+    if (i >= 0) doPlaces.splice(i, 1);
+    else if (doPlaces.length < 3) doPlaces.push(ri);
+    else { showToast('3 places already chosen. Tap one to remove it first.', true); return; }
+    renderDanceOff();
+  }
+  // Teams that could have had a Wild Card but don't show one (e.g. it was missed)
+  function showDanceOffOthers() {
+    const others = danceOffSession(doLine).filter(function(r) {
+      const t = (r.routineType || '').toLowerCase();
+      return !hasWildCard(r) && doExtra.indexOf(r.rowIndex) === -1 && (!t || t.indexOf('experienced') !== -1);
+    });
+    document.getElementById('do-add').style.display = 'none';
+    document.getElementById('do-others').innerHTML = others.length
+      ? '<div class="do-hint">Tap a team to add it. It will also get its Wild Card.</div>' + others.map(function(r) { return doTeamBtn(r, true); }).join('')
+      : '<div class="do-hint">No other Experienced teams in this session.</div>';
+  }
+  function addDanceOffTeam(ri) {
+    doExtra.push(ri);
+    if (!hasWildCard(appState.rows[ri])) addTeamAward(ri, 'Wild Card');
+    document.getElementById('do-others').innerHTML = '';
+    document.getElementById('do-add').style.display = '';
+    renderDanceOff();
+  }
+  function saveDanceOff() {
+    const line = doLine;
+    if (line === null) return;
+    const places = doPlaces.map(function(ri) {
+      const r = appState.rows[ri];
+      return { rowIndex: ri, team: r.team, school: r.school };
+    });
+    appState.rows[line].danceOff = places;
+    rowLocked[line] = true;
+    closeDanceOff();
+    redrawLine(line);
+    dispatchSave(line, { action: 'setDanceOff', places: places }).then(function(ok) {
+      rowLockFlags[line] = false;
+      if (ok) showToast('Dance off saved ✓', false);
+    });
+  }
+  function redrawLine(ri) {
+    const container = document.getElementById('running-order');
+    const old = container.querySelector('[data-row-index="' + ri + '"]');
+    if (old) container.replaceChild(buildSpecialRow(appState.rows[ri]), old);
+    markUnsaved(ri);
+  }
 
   // ── HOLD TO UNTICK ───────────────────────────────────────
   (function setupHoldToUntick() {
