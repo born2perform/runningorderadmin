@@ -93,9 +93,9 @@
     }
     .header-inner {
       display: grid;
-      grid-template-columns: auto 1fr auto;
+      grid-template-columns: auto 1fr auto auto;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
     .header-logo {
       height: 36px; width: auto; display: block; flex-shrink: 0;
@@ -788,6 +788,23 @@
     }
 
     /* ── AWARDS BUTTON (header) ─────────────────────────── */
+    .alert-btn {
+      position: relative; display: flex; align-items: center; justify-content: center;
+      width: 30px; height: 30px; margin-right: -2px; flex-shrink: 0;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 6px; font-size: 0.95rem; cursor: pointer;
+      -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+    }
+    .alert-btn .bell { filter: grayscale(1); opacity: 0.55; }
+    .alert-btn::after {
+      content: ''; position: absolute; top: 4px; right: 4px; width: 7px; height: 7px;
+      border-radius: 50%; background: #d93025;
+    }
+    .alert-btn.on { background: rgba(241,194,50,0.18); border-color: rgba(241,194,50,0.55); }
+    .alert-btn.on .bell { filter: none; opacity: 1; }
+    .alert-btn.on::after { display: none; }
+    .alert-btn.busy .bell { animation: bellPulse 0.9s ease-in-out infinite; }
+    @keyframes bellPulse { 50% { opacity: 0.2; } }
     .awards-btn {
       display: flex; align-items: center; gap: 4px;
       background: rgba(241,194,50,0.12);
@@ -967,11 +984,12 @@
       <div class="header-text">
         <div class="header-title">Live Tracker</div>
         <div class="header-comp">
+          <span id="conn-dot" class="conn-dot ok" style="margin-right:2px;flex-shrink:0;" aria-label="Connection"></span>
           <span id="comp-name-city" class="header-comp-city">Loading...</span>
           <span id="comp-name-date" class="header-comp-date"></span>
-          <span id="conn-dot" class="conn-dot ok" style="margin-left:6px;" aria-label="Connection"></span>
         </div>
       </div>
+      <button class="alert-btn" id="alert-btn" onclick="handleAlertBtn()" aria-label="Staff alerts"><span class="bell">🔔</span></button>
       <button class="awards-btn" id="awards-btn" onclick="handleAwardsBtn()">🏆 Export</button>
     </div>
     <!-- Two-room comps only: stays empty (hidden) for normal comps -->
@@ -1280,7 +1298,8 @@
       const cityEl = document.getElementById('comp-name-city');
       const dateEl = document.getElementById('comp-name-date');
       if (cityEl) cityEl.textContent = compParts[0] || cleanComp;
-      if (dateEl) dateEl.textContent = compParts.length > 1 ? compParts.slice(1).join(', ') : '';
+      // The year is left off so the connection dot always fits
+      if (dateEl) dateEl.textContent = compParts.length > 1 ? compParts.slice(1).join(', ').replace(/\s+20\d\d\s*$/, '') : '';
 
       // Two-room comps: data.rooms is only sent when column L has room names
       const newRooms = Array.isArray(data.rooms) ? data.rooms : [];
@@ -2320,6 +2339,107 @@
   function queueJumpBtn() { if (!jumpRaf) jumpRaf = requestAnimationFrame(updateJumpBtn); }
   window.addEventListener('scroll', queueJumpBtn, { passive: true });
   window.addEventListener('resize', queueJumpBtn);
+
+  // ── STAFF ALERTS (🔔) ─────────────────────────────────────
+  // Gold bell = this phone gets a notification if nothing is ticked for a
+  // while. Grey bell with a red dot = alerts are off. Works on iPhone only
+  // when the app is opened from its Home Screen icon.
+  const PUSH_SW = 'push/sw.js';
+  function pushSupported() {
+    return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  }
+  function isStandalone() {
+    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  }
+  function setBell(state) {
+    const b = document.getElementById('alert-btn');
+    if (!b) return;
+    b.classList.toggle('on', state === 'on');
+    b.classList.toggle('busy', state === 'busy');
+  }
+  function b64ToBytes(s) {
+    s = s.replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4) s += '=';
+    const raw = atob(s), out = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+  async function pushRegistration() {
+    const reg = await navigator.serviceWorker.register(PUSH_SW, { scope: 'push/', updateViaCache: 'none' });
+    if (reg.active) return reg;
+    const w = reg.installing || reg.waiting;
+    await new Promise(function(resolve) {
+      if (!w) return resolve();
+      w.addEventListener('statechange', function() { if (w.state === 'activated') resolve(); });
+      setTimeout(resolve, 8000);
+    });
+    return reg;
+  }
+  async function sendSubscription(endpoint, action) {
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: action, endpoint: endpoint })
+    });
+    return res.json();
+  }
+  let alertBusy = false;
+  async function handleAlertBtn() {
+    if (alertBusy) return;
+    if (!pushSupported()) {
+      showToast(/iPhone|iPad/.test(navigator.userAgent) && !isStandalone()
+        ? 'Open the app from its Home Screen icon to turn on alerts'
+        : 'This phone can\'t get alerts. Update it, then try again', true);
+      return;
+    }
+    if (Notification.permission === 'denied') {
+      showToast('Alerts are blocked. Turn them on in Settings, Notifications', true);
+      return;
+    }
+    alertBusy = true; setBell('busy');
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { setBell('off'); showToast('Alerts are off', true); return; }
+      const reg = await pushRegistration();
+      let sub = await reg.pushManager.getSubscription();
+      const wasOn = !!sub && localStorage.getItem('b2pAlertsOn') === '1';
+      if (!sub) {
+        const kr = await fetch(SCRIPT_URL + '?action=pushKey&t=' + Date.now()).then(function(r) { return r.json(); });
+        if (!kr || !kr.key) { setBell('off'); showToast('Alerts aren\'t set up on the sheet yet', true); return; }
+        sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(kr.key) });
+      }
+      const d = await sendSubscription(sub.endpoint, wasOn ? 'pushTest' : 'pushSubscribe');
+      if (d && d.success) {
+        try { localStorage.setItem('b2pAlertsOn', '1'); localStorage.setItem('b2pAlertsSynced', String(Date.now())); } catch (e) {}
+        setBell('on');
+        showToast(wasOn ? 'Test alert sent' : 'Alerts on. A test alert is on its way');
+      } else {
+        setBell(wasOn ? 'on' : 'off');
+        showToast('Couldn\'t send the alert' + (d && (d.error || d.status) ? ' (' + (d.error || d.status) + ')' : ''), true);
+      }
+    } catch (e) {
+      setBell('off');
+      showToast('Couldn\'t turn on alerts: ' + (e && e.message ? e.message : e), true);
+    } finally {
+      alertBusy = false;
+      if (document.getElementById('alert-btn').classList.contains('busy')) setBell('off');
+    }
+  }
+  // On opening: show the bell's state, and once a day remind the sheet about
+  // this phone (quietly, no test alert) in case it was removed
+  (async function checkAlerts() {
+    try {
+      if (!pushSupported() || Notification.permission !== 'granted') { setBell('off'); return; }
+      const reg = await navigator.serviceWorker.getRegistration('push/');
+      const sub = reg ? await reg.pushManager.getSubscription() : null;
+      if (!sub) { setBell('off'); return; }
+      setBell('on');
+      const last = Number(localStorage.getItem('b2pAlertsSynced') || 0);
+      if (Date.now() - last > 20 * 3600 * 1000) {
+        const d = await sendSubscription(sub.endpoint, 'pushResync');
+        if (d && d.success) localStorage.setItem('b2pAlertsSynced', String(Date.now()));
+      }
+    } catch (e) { setBell('off'); }
+  })();
 
   // ── TOAST ────────────────────────────────────────────────
   let toastTimer;
