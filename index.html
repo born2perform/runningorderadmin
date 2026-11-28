@@ -2161,11 +2161,27 @@
   }
 
   // Teams in this line's session: after the previous dance off line, same room
+  // Sparks = Tiny, Mini, Junior. Flames = everything older (Youth, Senior, Over 16...)
+  function isSparksAge(r) { return /tiny|mini|junior/i.test(r.ageGroup || ''); }
   function danceOffSession(lineIndex) {
     const order = appState.renderOrder;
     const pos = order.indexOf(lineIndex);
     const lineRow = appState.rows[lineIndex];
     const room = isTwoRoom() ? rowRoomName(lineRow) : null;
+    const label = (lineRow.school || lineRow.team || '').toLowerCase();
+    const want = /sparks/.test(label) ? 'sparks' : /flames/.test(label) ? 'flames' : null;
+    // Line names its session: take that session's teams from anywhere earlier in the day,
+    // so a Flames team moved into the morning still lands in the Flames dance off
+    if (want) {
+      const picked = [];
+      for (let i = 0; i < pos; i++) {
+        const r = appState.rows[order[i]];
+        if (!r || r.rowType !== 'standard' || r.withdrawn || !r.ageGroup) continue;
+        if (room !== null && rowRoomName(r) !== room) continue;
+        if (isSparksAge(r) === (want === 'sparks')) picked.push(r);
+      }
+      if (picked.length) return picked;
+    }
     const teams = [];
     for (let i = pos - 1; i >= 0; i--) {
       const r = appState.rows[order[i]];
